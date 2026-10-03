@@ -148,8 +148,8 @@ Honeychecker (internal): `POST /hc/register {user_id, index}` · `POST /hc/check
 **T1**
 - Nidhi:
   - `dte/int_codec.py` + tests
-  - `scripts/download_corpus.py` (RockYou with counts / SecLists usernames → `data/raw/`)
-  - `scripts/train_pcfg.py` → `models/pcfg_password_v1.json.gz`
+  - `backend/scripts/download_corpus.py` (RockYou with counts / SecLists usernames → `data/raw/`)
+  - `backend/scripts/train_pcfg.py` → `models/pcfg_password_v1.json.gz`
   - `dte/pcfg.py` + `dte/password_dte.py` (encode/decode/sample/sample_like/probability)
   - hypothesis round-trip + totality tests
 - Dhruv:
@@ -204,7 +204,7 @@ Honeychecker (internal): `POST /hc/register {user_id, index}` · `POST /hc/check
 
 **T5**
 - Aryan: `app/utils/strength.py` (entropy estimate, common-password check, patterns) + `tests/test_strength.py`.
-- Tanmay: `scripts/build_attack_wordlist.py` (top-N from corpus + mangling rules: leet, capitalise,
+- Tanmay: `backend/scripts/build_attack_wordlist.py` (top-N from corpus + mangling rules: leet, capitalise,
   append years/digits) + `tests/test_wordlist_builder.py`.
 
 ### Phase 2 — Feature complete (13–19 Oct)
@@ -226,7 +226,7 @@ Honeychecker (internal): `POST /hc/register {user_id, index}` · `POST /hc/check
 - Tanuj:
   - switch to the real honeycore
   - `/vault/export`, `/attack/*`, `/eval/summary`
-  - `scripts/seed_demo.py` (admin, demo user with 8 realistic entries, a second user "bob" for sharing)
+  - `backend/scripts/seed_demo.py` (admin, demo user with 8 realistic entries, a second user "bob" for sharing)
   - error handling, OpenAPI matches the contract
 - Rohan:
   - identity keys + cert at registration (Parth's libs)
@@ -247,7 +247,7 @@ Honeychecker (internal): `POST /hc/register {user_id, index}` · `POST /hc/check
 
 **T4**
 - Parth: `honeychecker/app/security.py` (mTLS CN check + signed-request middleware, replay cache); compose mTLS verified.
-- Vedant: staging deploy (Render api + honeychecker, Vercel preview, Neon), secrets set, CORS, `scripts/smoke_test.py`.
+- Vedant: staging deploy (Render api + honeychecker, Vercel preview, Neon), secrets set, CORS, `backend/scripts/smoke_test.py`.
 
 **T5**
 - Aryan: `app/api/utils.py` router `POST /api/utils/strength`.
