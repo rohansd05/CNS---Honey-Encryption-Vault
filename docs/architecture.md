@@ -42,20 +42,24 @@ for anything missing. The vault blob shape is identical in both modes.
 Legend: ✅ exists after the Phase 0 scaffold · 🔜 planned (owner, phase).
 
 ```text
-CNS-Honey-Encryption-Vault/
+CNS---Honey-Encryption-Vault/
+├── README.md                            ✅
+├── PROJECT-BRIEF.md                     ✅ what & why (normative crypto spec)
+├── PROJECT-ROADMAP.md                   ✅ who/when, contracts summary
+├── CLAUDE.md                            ✅ Claude Code entry point (imports AGENTS.md)
 ├── .env.example                         ✅ single env file for all services
 ├── .gitignore                           ✅
-├── README.md                            ✅
 ├── docker-compose.yml                   🔜 T4 Vedant, P1
 ├── render.yaml                          🔜 T4 Vedant, P2
+├── .claude/
+│   └── settings.json                    ✅ agent permissions (denies git/gh write commands)
 ├── .github/
+│   ├── CODEOWNERS                       ✅ review owners per path (PROJECT-ROADMAP.md §2)
 │   ├── PULL_REQUEST_TEMPLATE.md         ✅
 │   ├── ISSUE_TEMPLATE/task.md           ✅
 │   └── workflows/ci.yml                 🔜 T4 Vedant, P1
 ├── docs/
-│   ├── AGENTS.md · CLAUDE.md            ✅ agent rules
-│   ├── PROJECT-BRIEF.md                 ✅ what & why (normative crypto spec)
-│   ├── PROJECT-ROADMAP.md               ✅ who/when, contracts summary
+│   ├── AGENTS.md                        ✅ rules for AI coding agents
 │   ├── api-contract.md                  ✅ FROZEN REST contract
 │   ├── architecture.md                  ✅ this file
 │   ├── threat-model.md                  ✅

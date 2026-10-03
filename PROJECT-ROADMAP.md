@@ -1,5 +1,6 @@
 # PROJECT ROADMAP — HoneyVault (Ocean's 10)
 
+Repository: https://github.com/rohansd05/CNS---Honey-Encryption-Vault (admin: Rohan, @rohansd05).
 Target submission: **Sun 1 Nov 2026**. Dates are targets; the T1 lead updates this file at each
 phase gate.
 
@@ -15,11 +16,29 @@ phase gate.
 ## 2. Tracks & ownership
 | Track | Members | Owns (paths) |
 |---|---|---|
-| **T1 Core Crypto & DTE** (lead + integration) | Nidhi (DTE/PCFG), Dhruv (KDF/cipher/vault/attack/eval) | `backend/honeycore/` (except sharing/pki/transport), `backend/attack/`, `backend/eval/`, `scripts/download_corpus.py`, `scripts/train_pcfg.py` |
-| **T2 Backend API & Honeywords** | Tanuj (app core, auth, vault, attack/eval APIs), Rohan (honeywords, honeychecker, shares, admin) | `backend/app/`, `backend/alembic/`, `honeychecker/` (except `security.py`), `scripts/seed_demo.py` |
+| **T1 Core Crypto & DTE** (lead + integration) | Nidhi (DTE/PCFG), Dhruv (KDF/cipher/vault/attack/eval) | `backend/honeycore/` (except sharing/pki/transport), `backend/attack/`, `backend/eval/`, `backend/scripts/download_corpus.py`, `backend/scripts/train_pcfg.py` |
+| **T2 Backend API & Honeywords** | Tanuj (app core, auth, vault, attack/eval APIs), Rohan (honeywords, honeychecker, shares, admin) | `backend/app/`, `backend/alembic/`, `honeychecker/` (except `security.py`), `backend/scripts/seed_demo.py` |
 | **T3 Frontend** | Krrish (foundation, auth, vault, sharing), Chetan (landing, attacker console, evaluation, admin, about) | `frontend/` |
-| **T4 Security Infra & Deployment** | Parth (ECC sharing, PKI, transport security), Vedant (CI, Docker, deploy, release) | `honeycore/sharing.py`, `honeycore/pki.py`, `honeycore/transport.py`, `honeychecker/app/security.py`, `pki/`, `.github/`, Dockerfiles, `docker-compose.yml`, `render.yaml`, `frontend/vercel.json`, `docs/deployment.md`, `scripts/smoke_test.py` |
-| **T5 Utilities & Tooling** | Aryan (password-strength utility), Tanmay (attack wordlist builder) | `app/utils/strength.py`, `app/api/utils.py`, `scripts/build_attack_wordlist.py`, `attack/wordlists/` |
+| **T4 Security Infra & Deployment** | Parth (ECC sharing, PKI, transport security), Vedant (CI, Docker, deploy, release) | `honeycore/sharing.py`, `honeycore/pki.py`, `honeycore/transport.py`, `honeychecker/app/security.py`, `pki/`, `.github/`, Dockerfiles, `docker-compose.yml`, `render.yaml`, `frontend/vercel.json`, `docs/deployment.md`, `backend/scripts/smoke_test.py` |
+| **T5 Utilities & Tooling** | Aryan (password-strength utility), Tanmay (attack wordlist builder) | `app/utils/strength.py`, `app/api/utils.py`, `backend/scripts/build_attack_wordlist.py`, `attack/wordlists/` |
+
+### GitHub handles
+| Member | Track | GitHub |
+|---|---|---|
+| Nidhi | T1 (lead) | @Nidzz07 |
+| Dhruv | T1 | @dhruvgangurde |
+| Tanuj | T2 | @tanujb03 |
+| Rohan | T2 · repo admin | @rohansd05 |
+| Krrish | T3 | @krrishgadekar |
+| Chetan | T3 | @ChetanC09 |
+| Parth | T4 | @Pgogg |
+| Vedant | T4 · deployment owner | @vedantghuge22-hash |
+| Tanmay | T5 | TBD |
+| Aryan | T5 | TBD |
+
+**Repo administration** (collaborators, rulesets/branch protection, labels, Project board,
+approving the Render/Vercel GitHub app access) belongs to **Rohan**. **Vedant** stays the
+deployment owner (CI, Docker, Render/Vercel/Neon projects, releases).
 
 T5 modules are optional enhancements: the app has fallbacks (client-side strength meter, built-in
 attack wordlist), and `app/main.py` includes the utils router inside `try/except ImportError`.
@@ -48,10 +67,32 @@ See `README.md` → Repository layout. The full tree is maintained in `docs/arch
 
 Changes require a PR labelled `contract-change`, approved by the T1 lead and the affected track(s).
 
+### 4.1 Accepted Phase 0 decisions
+Scaffold deviations from the brief, reviewed and accepted by the T1 lead:
+1. `interfaces.py` matches §7.0 except: unquoted `HoneyVaultAPI` / `ConventionalVaultAPI` return
+   types (ruff UP037), inline comments moved into docstrings, unused `field` import kept with `noqa`.
+2. Stub vault blobs have exactly the v1 keys, but `scheme`, `kdf.alg` and model ids say "stub", so
+   a stub vault can't be mistaken for a real one.
+3. Unknown entry ids raise `EntryNotFoundError` (subclass of `HoneyCoreError` and `KeyError`;
+   added by the Phase 0 fix-up, was plain `KeyError`) → HTTP 404.
+4. Secret settings are `SecretStr` with empty defaults; read them with `.get_secret_value()`.
+5. `honeychecker/pyproject.toml` added (ruff + pytest config) so `pytest` can import `app`.
+6. Ruff config marks `alembic` as third-party, plus one `noqa: S105` on the model-path setting.
+7. The Alembic `script.py.mako` template uses modern typing so generated migrations pass ruff.
+8. `docs/api-contract.md` fills gaps the brief leaves open, marked **(accepted, Phase 0)**: field
+   limits, JWT claims, register rate limit, tampered share → 200 with failed flags, 404 for
+   unavailable eval/attack routes, honeychecker errors; T2 strips `input`/`ctx` from 422 bodies.
+9. `load_honeycore("real")` expects these exports: `vault.HoneyVault`,
+   `baseline.ConventionalVault`, `dte.entry_dte.PCFGEntryDTE`, `dte.password_dte.PCFGPasswordModel`,
+   `sharing.Sharing`, `pki.PKI` (the last must satisfy `PKIAPI`).
+
+Also: `backend/` and `honeychecker/` both have top-level `app` and `tests` packages, so their test
+suites run separately (`cd backend && pytest`; `cd honeychecker && pytest`) — locally and in CI.
+
 ## 5. API contract summary (base `/api`, JSON, JWT = `Authorization: Bearer <token>`)
 | Method | Path | Auth | Request | Response |
 |---|---|---|---|---|
-| GET | /health | – | – | `{status, version, honeycore_impl, honeychecker:"ok"\|"down"}` |
+| GET | /health | – | – | `{status, version, honeycore_impl, honeychecker:"ok"\|"down"\|"unknown"}` |
 | POST | /auth/register | – | `{username, login_password, master_password}` | 201 `{id, username}`; 409 taken; 422 invalid / login==master |
 | POST | /auth/login | – | `{username, login_password}` | 200 `{access_token, token_type:"bearer", user:{id, username, is_admin}}`; 401 `{detail:"Invalid credentials"}`; 503 honeychecker down |
 | GET | /auth/me | JWT | – | `{id, username, is_admin, created_at, entry_count}` |
@@ -77,6 +118,10 @@ Honeychecker (internal): `POST /hc/register {user_id, index}` · `POST /hc/check
 → {match}` · `GET /hc/alarms` · `GET /hc/health`.
 
 ## 6. Git workflow & contribution policy
+- Repo: https://github.com/rohansd05/CNS---Honey-Encryption-Vault (admin: Rohan, @rohansd05).
+- **AI agents never run git/gh write commands** (add, commit, push, pull, merge, rebase, reset,
+  restore, checkout, switch, stash, tag, …; `gh pr/repo/release`). They only edit files and print
+  `git status --short` + a suggested commit message; humans commit and push (AGENTS.md §5).
 - `main` = released/production. `dev` = integration. Both protected (PR + 1 approval + green CI).
 - Feature branches from `dev`: `feat/t<N>-<desc>`. Conventional commits. Small PRs (< ~400 lines).
 - Reviewers: the pair partner first; for contract/integration PRs, the T1 lead too.
@@ -89,9 +134,10 @@ Honeychecker (internal): `POST /hc/register {user_id, index}` · `POST /hc/check
 ## 7. Phase plans
 
 ### Phase 0 — Foundation (3–5 Oct)
-- **Vedant:** add all 9 collaborators; after the first push, set the default branch to `dev`;
-  protect `main` + `dev`; create labels (`t1`…`t5`, `contract-change`, `bug`, `integration`);
-  create a GitHub Project board.
+- **Rohan (repo admin):** add all 9 collaborators; after the first push, set the default branch to
+  `dev`; add rulesets protecting `main` + `dev`; create labels (`t1`…`t5`, `contract-change`, `bug`,
+  `integration`); create a GitHub Project board; approve the Render/Vercel GitHub app access when
+  Vedant requests it.
 - **Nidhi:** commit the root docs + requirements; run the Phase 0 scaffold prompt (backend skeleton,
   `honeycore/interfaces.py`, `stubs.py`, `factory.py`, honeychecker skeleton, `docs/api-contract.md`,
   ADRs, PR template); open a PR to `dev`. **Dhruv** reviews.
@@ -152,7 +198,8 @@ Honeychecker (internal): `POST /hc/register {user_id, index}` · `POST /hc/check
   - GitHub Actions CI (backend ruff+pytest, honeychecker tests, frontend lint+build when present)
   - Dockerfiles (backend, honeychecker, frontend)
   - `docker-compose.yml` (postgres + api + honeychecker + frontend)
-  - Neon project + 2 DBs; Render/Vercel projects linked (no deploy yet)
+  - Neon project + 2 DBs; Render/Vercel projects linked (no deploy yet; Rohan approves the
+    GitHub app access)
   - `docs/deployment.md` draft
 
 **T5**

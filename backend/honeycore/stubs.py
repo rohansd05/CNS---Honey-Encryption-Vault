@@ -21,7 +21,7 @@ import hmac
 import json
 import secrets
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from honeycore.interfaces import (
@@ -36,8 +36,10 @@ from honeycore.interfaces import (
     PRINTABLE_MIN,
     SALT_LEN,
     USERNAME_SEED_INTS,
+    CertInfo,
     DecodedEntry,
     Entry,
+    EntryNotFoundError,
     IdentityKeys,
     InvalidInputError,
     InvalidSignatureError,
@@ -345,7 +347,7 @@ class StubHoneyVault:
         for e in self._entries:
             if e["id"] == entry_id:
                 return e
-        raise KeyError(entry_id)
+        raise EntryNotFoundError("unknown entry id")
 
     def _seal(self, enc_key: bytes, entry: Entry) -> tuple[bytes, bytes]:
         if not isinstance(entry.service, str) or not entry.service.strip():
@@ -378,7 +380,7 @@ class StubHoneyVault:
         return entry_id
 
     def update_entry(self, master_password: str, entry_id: str, entry: Entry) -> None:
-        """Re-encrypt only ``entry_id``. Raises ``KeyError`` if the id does not exist."""
+        """Re-encrypt only ``entry_id``. Raises ``EntryNotFoundError`` if the id is unknown."""
         target = self._find(entry_id)
         enc_key, _ = self._keys(master_password)
         target["nonce"], target["ciphertext"] = self._seal(enc_key, entry)
@@ -386,7 +388,7 @@ class StubHoneyVault:
         target["updated_at"] = _now()
 
     def delete_entry(self, entry_id: str) -> None:
-        """Remove ``entry_id``. Raises ``KeyError`` if it does not exist."""
+        """Remove ``entry_id``. Raises ``EntryNotFoundError`` if it is unknown."""
         self._entries.remove(self._find(entry_id))
 
     def unlock(self, master_password: str) -> UnlockResult:
@@ -409,7 +411,7 @@ class StubHoneyVault:
         return UnlockResult(entries=entries, sigil=self._sigil(sigil_key))
 
     def export_entry_seed(self, master_password: str, entry_id: str) -> bytes:
-        """Decrypted seed of one entry (wrong pw -> decoy seed). ``KeyError`` if id unknown."""
+        """Decrypted seed of one entry (wrong pw -> decoy); ``EntryNotFoundError`` if unknown."""
         e = self._find(entry_id)
         enc_key, _ = self._keys(master_password)
         return self.cipher.apply(enc_key, e["nonce"], e["ciphertext"])
@@ -598,13 +600,16 @@ class StubSharing:
 
 
 class StubPKI:
-    """Placeholder PKI (no frozen Protocol yet — owner T4 Parth to propose one).
+    """``PKIAPI`` stub: fake PEMs, NO real signatures. Deterministic ``CertInfo``.
 
-    Certificates are fake PEMs whose body is ``stub-cert:<username>``.
+    A user cert's body is ``stub-cert:<days>:<username>``; CA certs are ``stub-ca:root`` and
+    ``stub-ca:issuing``. Validity starts at a fixed epoch and is never checked, so stub certs
+    never expire. User certs carry no clientAuth EKU (like real user identity certs).
     """
 
-    ROOT_SUBJECT = "CN=HoneyVault Stub Root CA"
-    ISSUER_SUBJECT = "CN=HoneyVault Stub Issuing CA"
+    ROOT_CN = "HoneyVault Stub Root CA"
+    ISSUER_CN = "HoneyVault Stub Issuing CA"
+    EPOCH = datetime(2026, 1, 1, tzinfo=UTC)
 
     def root_ca_pem(self) -> bytes:
         """Placeholder root CA certificate."""
@@ -614,13 +619,74 @@ class StubPKI:
         """Placeholder issuing CA certificate."""
         return _placeholder_pem("CERTIFICATE", "stub-ca:issuing")
 
-    def issue_user_certificate(self, username: str, public_pem: bytes) -> bytes:
-        """Placeholder user certificate for ``username``."""
-        return _placeholder_pem("CERTIFICATE", f"stub-cert:{username}")
+    def issuing_ca_key_pem(self) -> bytes:
+        """Placeholder issuing CA private key (pairs with ``issuing_ca_pem``)."""
+        return _placeholder_pem("PRIVATE KEY", "stub-ca-key:issuing")
 
-    def verify_certificate(self, cert_pem: bytes, trusted_ca_pems: list[bytes]) -> dict[str, str]:
-        """Return ``{subject, issuer}``; ``InvalidSignatureError`` if not a stub user cert."""
-        body = _placeholder_body(cert_pem)
-        if not body.startswith("stub-cert:"):
+    def issue_user_certificate(
+        self,
+        username: str,
+        public_pem: bytes,
+        issuer_cert_pem: bytes,
+        issuer_key_pem: bytes,
+        days: int = 365,
+    ) -> bytes:
+        """Placeholder user certificate for ``username``; issuer arguments are not checked."""
+        if not username or days < 1:
+            raise InvalidInputError("username must be non-empty and days >= 1")
+        return _placeholder_pem("CERTIFICATE", f"stub-cert:{days}:{username}")
+
+    def verify_certificate(
+        self,
+        cert_pem: bytes,
+        trusted_ca_pems: list[bytes],
+        *,
+        expected_cn: str | None = None,
+        require_client_auth: bool = False,
+    ) -> CertInfo:
+        """Accept any stub user cert (``trusted_ca_pems`` ignored); check CN and EKU.
+
+        Raises ``InvalidSignatureError`` for non-user certs, a CN mismatch, or
+        ``require_client_auth`` (stub user certs have no clientAuth EKU).
+        """
+        try:
+            info = self.describe(cert_pem)
+        except InvalidInputError as exc:
+            raise InvalidSignatureError("not a stub certificate") from exc
+        if not _placeholder_body(cert_pem).startswith("stub-cert:"):
             raise InvalidSignatureError("not a stub user certificate")
-        return {"subject": f"CN={body.removeprefix('stub-cert:')}", "issuer": self.ISSUER_SUBJECT}
+        if expected_cn is not None and not hmac.compare_digest(
+            info.subject_cn.encode("utf-8"), expected_cn.encode("utf-8")
+        ):
+            raise InvalidSignatureError("certificate CN mismatch")
+        if require_client_auth:
+            raise InvalidSignatureError("certificate lacks clientAuth EKU")
+        return info
+
+    def describe(self, cert_pem: bytes) -> CertInfo:
+        """Parse a stub cert without verifying it. ``InvalidInputError`` if not a stub cert."""
+        try:
+            body = _placeholder_body(cert_pem)
+        except InvalidSignatureError as exc:
+            raise InvalidInputError("not a stub certificate") from exc
+        days = 3650
+        if body == "stub-ca:root":
+            subject, issuer = self.ROOT_CN, self.ROOT_CN
+        elif body == "stub-ca:issuing":
+            subject, issuer = self.ISSUER_CN, self.ROOT_CN
+        elif body.startswith("stub-cert:"):
+            days_text, _, subject = body.removeprefix("stub-cert:").partition(":")
+            if not days_text.isdigit() or not subject:
+                raise InvalidInputError("not a stub certificate")
+            days, issuer = int(days_text), self.ISSUER_CN
+        else:
+            raise InvalidInputError("not a stub certificate")
+        digest = hashlib.sha256(cert_pem).digest()
+        return CertInfo(
+            subject_cn=subject,
+            issuer_cn=issuer,
+            serial=int.from_bytes(digest[:8], "big") >> 1,
+            not_before=self.EPOCH.isoformat(),
+            not_after=(self.EPOCH + timedelta(days=days)).isoformat(),
+            fingerprint_sha256=digest.hex(),
+        )

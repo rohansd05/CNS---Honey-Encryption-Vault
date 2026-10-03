@@ -97,6 +97,7 @@ class HoneyCoreError(Exception): ...
 class InvalidInputError(HoneyCoreError): ...      # e.g. field too long / non-printable (input validation only)
 class WrongPasswordError(HoneyCoreError): ...     # ONLY raised by ConventionalVault (the baseline)
 class InvalidSignatureError(HoneyCoreError): ...  # sharing / PKI verification failures
+class EntryNotFoundError(HoneyCoreError, KeyError): ...  # unknown entry id in update/delete/export_entry_seed → 404
 
 @dataclass(frozen=True)
 class Entry:
@@ -185,9 +186,28 @@ class SharingAPI(Protocol):
                    sender_private_pem: bytes, sender_cert_pem: bytes) -> dict: ...
     def open_share(self, envelope: dict, recipient_private_pem: bytes,
                    trusted_ca_pems: list[bytes]) -> tuple[bytes, dict]: ...   # (seed, aad); raises InvalidSignatureError
+
+@dataclass(frozen=True)
+class CertInfo:
+    subject_cn: str
+    issuer_cn: str
+    serial: int
+    not_before: str                 # ISO 8601, UTC
+    not_after: str                  # ISO 8601, UTC
+    fingerprint_sha256: str         # lowercase hex over the DER encoding
+
+@runtime_checkable
+class PKIAPI(Protocol):
+    def issue_user_certificate(self, username: str, public_pem: bytes, issuer_cert_pem: bytes,
+                               issuer_key_pem: bytes, days: int = 365) -> bytes: ...
+    def verify_certificate(self, cert_pem: bytes, trusted_ca_pems: list[bytes], *,
+                           expected_cn: str | None = None, require_client_auth: bool = False) -> CertInfo: ...
+        # raises InvalidSignatureError on bad chain, expiry, CN or EKU mismatch
+    def describe(self, cert_pem: bytes) -> CertInfo: ...   # parse only, no verification
 ```
 `honeycore/factory.py` exposes `load_honeycore(impl: "stub" | "real") -> HoneyCore`, a dataclass
-with fields `vault_cls`, `conventional_vault_cls`, `entry_dte`, `password_model`, `sharing`, `pki`.
+with fields `vault_cls`, `conventional_vault_cls`, `entry_dte`, `password_model`, `sharing`,
+`pki` (a `PKIAPI`).
 
 ### 7.1 Data model & limits
 Entry = (service, username, password). **Service is plaintext metadata** (ADR-001).
@@ -316,6 +336,10 @@ A wrong password raises `WrongPasswordError` (InvalidTag). Used only for the com
 ## 10. PKI & service channel
 - **Root CA** (P-256, 10 years) is created offline by `pki/make_root_ca.py`. Its key never leaves
   `pki/out/` and is never deployed.
+- Library contract: `PKIAPI` / `CertInfo` in `honeycore/interfaces.py` (§7.0), implemented by
+  `honeycore/pki.py` (export `PKI`). Every chain, expiry, CN or EKU failure raises
+  `InvalidSignatureError`; the honeychecker uses `verify_certificate(..., expected_cn=...,
+  require_client_auth=True)` for the API's client cert.
 - **Issuing CA** (5 years, signed by Root) issues:
   - user identity certs (in-app)
   - `honeychecker-server` cert (SAN: localhost, honeychecker)

@@ -18,10 +18,13 @@ from honeycore.interfaces import (
     ENTRY_SEED_LEN,
     MAX_FIELD_LEN,
     PASSWORD_SEED_INTS,
+    PKIAPI,
     USERNAME_SEED_INTS,
+    CertInfo,
     ConventionalVaultAPI,
     Entry,
     EntryDTE,
+    EntryNotFoundError,
     FieldDTE,
     HoneyVaultAPI,
     InvalidInputError,
@@ -37,6 +40,7 @@ from honeycore.stubs import (
     StubEntryDTE,
     StubHoneyVault,
     StubPasswordModel,
+    StubPKI,
     StubSharing,
     StubUsernameModel,
 )
@@ -75,6 +79,7 @@ def test_stubs_satisfy_protocols() -> None:
     assert isinstance(core.password_model, PasswordModel)
     assert isinstance(StubUsernameModel(), FieldDTE)
     assert isinstance(core.sharing, SharingAPI)
+    assert isinstance(core.pki, PKIAPI)
     assert isinstance(core.vault_cls.new(), HoneyVaultAPI)
     assert isinstance(core.conventional_vault_cls.new(MASTER, "demo"), ConventionalVaultAPI)
 
@@ -198,6 +203,18 @@ def test_update_and_delete_touch_one_entry() -> None:
         vault.delete_entry(second_id)
 
 
+def test_unknown_entry_id_raises_entry_not_found() -> None:
+    vault = _vault_with_entries()
+    assert issubclass(EntryNotFoundError, KeyError)
+    with pytest.raises(EntryNotFoundError):
+        vault.update_entry(MASTER, "no-such-id", SAMPLE_ENTRIES[0])
+    with pytest.raises(EntryNotFoundError):
+        vault.delete_entry("no-such-id")
+    with pytest.raises(EntryNotFoundError):
+        vault.export_entry_seed(MASTER, "no-such-id")
+    assert vault.entry_count() == len(SAMPLE_ENTRIES)
+
+
 def test_export_entry_seed_decodes_to_entry() -> None:
     vault = _vault_with_entries()
     entry_id = vault.to_dict()["entries"][0]["id"]
@@ -243,3 +260,40 @@ def test_sharing_round_trip_and_tamper() -> None:
     assert sharing.open_share(env, bob.private_pem, []) == (seed, aad)
     with pytest.raises(InvalidSignatureError):
         sharing.open_share({**env, "signature": "forged"}, bob.private_pem, [])
+
+
+# ---- PKI ----
+def _stub_user_cert(pki: StubPKI, username: str = "alice", days: int = 365) -> bytes:
+    keys = StubSharing().generate_identity()
+    return pki.issue_user_certificate(
+        username, keys.public_pem, pki.issuing_ca_pem(), pki.issuing_ca_key_pem(), days=days
+    )
+
+
+def test_pki_issue_verify_describe() -> None:
+    pki = StubPKI()
+    cert = _stub_user_cert(pki)
+    assert cert.startswith(b"-----BEGIN CERTIFICATE-----")
+    info = pki.verify_certificate(cert, [pki.root_ca_pem()], expected_cn="alice")
+    assert isinstance(info, CertInfo)
+    assert info.subject_cn == "alice" and info.issuer_cn == StubPKI.ISSUER_CN
+    assert info == pki.describe(cert) == pki.describe(_stub_user_cert(pki))  # deterministic
+    assert info.serial > 0 and len(info.fingerprint_sha256) == 64
+    assert info.not_before < info.not_after
+    assert pki.describe(_stub_user_cert(pki, days=30)).not_after < info.not_after
+    assert pki.describe(pki.issuing_ca_pem()).issuer_cn == StubPKI.ROOT_CN
+
+
+def test_pki_verify_rejects_cn_eku_and_garbage() -> None:
+    pki = StubPKI()
+    cert = _stub_user_cert(pki)
+    with pytest.raises(InvalidSignatureError):
+        pki.verify_certificate(cert, [pki.root_ca_pem()], expected_cn="mallory")
+    with pytest.raises(InvalidSignatureError):
+        pki.verify_certificate(cert, [pki.root_ca_pem()], require_client_auth=True)
+    with pytest.raises(InvalidSignatureError):
+        pki.verify_certificate(pki.root_ca_pem(), [pki.root_ca_pem()])
+    with pytest.raises(InvalidSignatureError):
+        pki.verify_certificate(b"not a pem", [pki.root_ca_pem()])
+    with pytest.raises(InvalidInputError):
+        pki.describe(b"not a pem")

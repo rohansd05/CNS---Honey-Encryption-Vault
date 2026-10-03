@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from honeycore.interfaces import (
+    PKIAPI,
     ConventionalVaultAPI,
     EntryDTE,
     HoneyVaultAPI,
@@ -29,7 +30,7 @@ class HoneyCore:
     entry_dte: EntryDTE
     password_model: PasswordModel
     sharing: SharingAPI
-    pki: Any  # no frozen PKI Protocol yet (T4 Parth to propose via contract-change)
+    pki: PKIAPI
 
 
 # (module under honeycore, expected export, owner). Exports are instantiated with no args,

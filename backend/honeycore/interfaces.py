@@ -56,6 +56,10 @@ class InvalidSignatureError(HoneyCoreError):
     """Sharing / PKI verification failures (bad signature, chain, expiry, EKU)."""
 
 
+class EntryNotFoundError(HoneyCoreError, KeyError):
+    """Unknown entry id in update/delete/export_entry_seed. Maps to HTTP 404."""
+
+
 @dataclass(frozen=True)
 class Entry:
     """Plaintext entry as supplied by the user. ``service`` is plaintext metadata (ADR-001)."""
@@ -265,4 +269,50 @@ class SharingAPI(Protocol):
 
         Raises ``InvalidSignatureError`` on any verification failure.
         """
+        ...
+
+
+@dataclass(frozen=True)
+class CertInfo:
+    """Parsed facts about an X.509 certificate (PROJECT-BRIEF.md §10)."""
+
+    subject_cn: str
+    issuer_cn: str
+    serial: int
+    not_before: str  # ISO 8601, UTC
+    not_after: str  # ISO 8601, UTC
+    fingerprint_sha256: str  # lowercase hex of SHA-256 over the DER encoding
+
+
+@runtime_checkable
+class PKIAPI(Protocol):
+    """Issue and verify user identity certificates (PROJECT-BRIEF.md §9–§10)."""
+
+    def issue_user_certificate(
+        self,
+        username: str,
+        public_pem: bytes,
+        issuer_cert_pem: bytes,
+        issuer_key_pem: bytes,
+        days: int = 365,
+    ) -> bytes:
+        """Return a PEM user cert (CN = ``username``) signed by the issuing CA."""
+        ...
+
+    def verify_certificate(
+        self,
+        cert_pem: bytes,
+        trusted_ca_pems: list[bytes],
+        *,
+        expected_cn: str | None = None,
+        require_client_auth: bool = False,
+    ) -> CertInfo:
+        """Verify chain to a trusted CA, validity period, CN and (optionally) EKU clientAuth.
+
+        Raises ``InvalidSignatureError`` on bad chain, expiry, CN or EKU mismatch.
+        """
+        ...
+
+    def describe(self, cert_pem: bytes) -> CertInfo:
+        """Parse ``cert_pem`` without verifying it."""
         ...

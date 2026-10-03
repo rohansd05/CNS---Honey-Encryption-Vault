@@ -3,8 +3,8 @@
 > Owner: T1 lead (Nidhi) with T2 (Tanuj, Rohan). This expands `PROJECT-ROADMAP.md` §5.
 > Changes only via a PR labelled `contract-change`, approved by the T1 lead and every affected
 > track. T3's MSW mocks and typed client are generated from this file, so keep it exact.
-> Items marked **(scaffold proposal)** were not specified in the brief/roadmap; T2 may refine
-> them via `contract-change` before Phase 1 ends.
+> Items marked **(accepted, Phase 0)** were not specified in the brief/roadmap; they were
+> proposed by the scaffold and accepted by the T1 lead. Further changes need `contract-change`.
 
 ## 0. Conventions
 
@@ -43,10 +43,18 @@ Every non-2xx response has a JSON body:
 | 429 | Rate limit exceeded |
 | 503 | Dependency unavailable (honeychecker down → login fails closed) |
 
+### 0.2.1 honeycore exceptions → HTTP (PROJECT-BRIEF.md §7.0)
+| Exception | HTTP |
+|---|---|
+| `InvalidInputError` | 422 |
+| `EntryNotFoundError` (unknown entry id in update/delete/export_entry_seed) | 404 `{"detail": "Entry not found"}` |
+| `InvalidSignatureError` | see `POST /shares/{id}/open` (§5) |
+| `WrongPasswordError` | never surfaces: raised only by the baseline vault inside the attack demo |
+
 ### 0.3 Authentication (JWT)
 - Issued by `POST /auth/login`. Algorithm `JWT_ALGORITHM` (HS256), secret `JWT_SECRET`,
   lifetime `ACCESS_TOKEN_EXPIRE_MINUTES` (60).
-- Claims: `sub` (user id), `username`, `is_admin`, `iat`, `exp`. **(scaffold proposal)**
+- Claims: `sub` (user id), `username`, `is_admin`, `iat`, `exp`. **(accepted, Phase 0)**
 - No refresh tokens; the SPA re-logs in on 401. Tokens are kept in memory by the SPA (not
   `localStorage`).
 
@@ -54,7 +62,7 @@ Every non-2xx response has a JSON body:
 | Route | Limit (env) | Key |
 |---|---|---|
 | `POST /auth/login` | `RATE_LIMIT_LOGIN` = `5/minute` | client IP |
-| `POST /auth/register` | `RATE_LIMIT_LOGIN` **(scaffold proposal)** | client IP |
+| `POST /auth/register` | `RATE_LIMIT_LOGIN` **(accepted, Phase 0)** | client IP |
 | `POST /vault/unlock` | `RATE_LIMIT_UNLOCK` = `10/minute` | user id (from JWT) |
 
 Exceeded → **429** `{"detail":"Rate limit exceeded"}` with a `Retry-After` header (seconds).
@@ -64,10 +72,10 @@ T2 must replace slowapi's default `{"error": ...}` body with this shape.
 | Field | Rule |
 |---|---|
 | entry `username`, entry `password` | 1–32 printable ASCII chars (0x20–0x7E); otherwise 422 |
-| entry `service` | 1–128 chars, plaintext metadata (ADR-001) **(scaffold proposal: 128)** |
-| account `username` | 3–32 chars, `^[A-Za-z0-9_.-]+$` **(scaffold proposal)** |
-| `login_password` | 8–128 chars **(scaffold proposal)** |
-| `master_password` | 8–128 chars at registration; 1–128 on every other route **(scaffold proposal)** |
+| entry `service` | 1–128 chars, plaintext metadata (ADR-001) **(accepted, Phase 0: 128)** |
+| account `username` | 3–32 chars, `^[A-Za-z0-9_.-]+$` **(accepted, Phase 0)** |
+| `login_password` | 8–128 chars **(accepted, Phase 0)** |
+| `master_password` | 8–128 chars at registration; 1–128 on every other route **(accepted, Phase 0)** |
 
 Master-password validation on unlock/add/update must depend **only on the input itself**
 (length), never on whether it is correct.
@@ -80,8 +88,8 @@ Master-password validation on unlock/add/update must depend **only on the input 
 ```json
 200 {"status": "ok", "version": "0.1.0", "honeycore_impl": "stub", "honeychecker": "ok"}
 ```
-`honeycore_impl`: `"stub" | "real"`. `honeychecker`: `"ok" | "down"`, or `"unknown"` until T2
-wires the honeychecker ping (Phase 0 scaffold returns `"unknown"`).
+`honeycore_impl`: `"stub" | "real"`. `honeychecker`: `"ok" | "down" | "unknown"` — `"unknown"`
+means not checked (the Phase 0 scaffold always returns it until T2 wires the honeychecker ping).
 
 ---
 
@@ -100,7 +108,7 @@ creates the user, k sweetwords + honeychecker registration (`/hc/register`), an 
 | 201 | `{"id": "3f0c…", "username": "alice"}` |
 | 409 | `{"detail": "Username already taken"}` |
 | 422 | `{"detail": "Login password and master password must differ"}` or validation list |
-| 503 | `{"detail": "Honeychecker unavailable"}` (registration cannot complete) **(scaffold proposal)** |
+| 503 | `{"detail": "Honeychecker unavailable"}` (registration cannot complete) **(accepted, Phase 0)** |
 
 ### `POST /auth/login` — no auth, rate-limited
 Request: `{"username": "alice", "login_password": "Tr0ub4dor&3"}`
@@ -197,7 +205,7 @@ Request: `{"master_password": "…", "entry_id": "9b1e…", "recipient_username"
 |---|---|
 | 201 | `{"share_id": "c71d…"}` |
 | 404 | `{"detail": "Entry not found"}` / `{"detail": "User not found"}` |
-| 422 | `{"detail": "Cannot share with yourself"}` **(scaffold proposal)** |
+| 422 | `{"detail": "Cannot share with yourself"}` **(accepted, Phase 0)** |
 
 A wrong master password produces a share of the decoy entry (consistent with HE; documented).
 
@@ -222,7 +230,7 @@ A wrong master password produces a share of the decoy entry (consistent with HE;
 - Sets `opened_at` on first open.
 - If the signature or certificate chain/expiry check fails, the response is still 200 with the
   failing flag `false` and `username`/`password` set to `null` — nothing is decrypted.
-  **(scaffold proposal; lets the UI render a "tampered" badge)**
+  **(accepted, Phase 0; lets the UI render a "tampered" badge)**
 - `404 {"detail": "Share not found"}` if it does not exist **or** the caller is not the recipient.
 
 ---
