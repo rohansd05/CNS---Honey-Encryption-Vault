@@ -1,0 +1,28 @@
+# HoneyVault backend tooling config (ruff + pytest).
+# Owner: T1 lead (Nidhi). Changes to lint rules affect every track — discuss before editing.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "honeycore", "attack", "eval", "scripts", "tests"]
+known-third-party = ["alembic"]  # the local alembic/ migrations dir is not a package
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]

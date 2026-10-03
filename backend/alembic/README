@@ -1,0 +1,1 @@
+Alembic migrations for honeyvault-api (owner: T2 — Tanuj). Run from backend/: `alembic revision --autogenerate -m "..."` then `alembic upgrade head`. URL = DATABASE_URL from .env.

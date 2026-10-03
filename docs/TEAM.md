@@ -1,0 +1,6 @@
+# Team — Ocean's 10
+
+Every member adds their own row via their own PR in Phase 0 (PROJECT-ROADMAP.md §1 gate).
+
+| Name | GitHub | Track | Role |
+|---|---|---|---|
