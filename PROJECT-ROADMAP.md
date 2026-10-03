@@ -16,8 +16,8 @@ phase gate.
 ## 2. Tracks & ownership
 | Track | Members | Owns (paths) |
 |---|---|---|
-| **T1 Core Crypto & DTE** (lead + integration) | Nidhi (DTE/PCFG), Dhruv (KDF/cipher/vault/attack/eval) | `backend/honeycore/` (except sharing/pki/transport), `backend/attack/`, `backend/eval/`, `backend/scripts/download_corpus.py`, `backend/scripts/train_pcfg.py` |
-| **T2 Backend API & Honeywords** | Tanuj (app core, auth, vault, attack/eval APIs), Rohan (honeywords, honeychecker, shares, admin) | `backend/app/`, `backend/alembic/`, `honeychecker/` (except `security.py`), `backend/scripts/seed_demo.py` |
+| **T1 Core Crypto & DTE** (lead + integration) | Nidhi (DTE/PCFG), Dhruv (KDF/cipher/vault/sigil/attack/eval) | `backend/honeycore/` (except sharing/pki/transport), `backend/attack/`, `backend/eval/`, `backend/scripts/download_corpus.py`, `backend/scripts/train_pcfg.py`, `backend/scripts/bench_kdf.py` |
+| **T2 Backend API & Honeywords** | Tanuj (app core: `app/security.py` (JWT), `app/rate_limit.py`, `app/errors.py`, `app/deps.py`, `app/models/*`; vault, attack/eval APIs), Rohan (auth: `app/api/auth.py` (register/login/me), `app/schemas/auth.py`; `app/api/admin.py`, `app/services/alerts.py`; honeywords, honeychecker, shares) | `backend/app/`, `backend/alembic/`, `honeychecker/` (except `security.py`), `backend/scripts/seed_demo.py` |
 | **T3 Frontend** | Krrish (foundation, auth, vault, sharing), Chetan (landing, attacker console, evaluation, admin, about) | `frontend/` |
 | **T4 Security Infra & Deployment** | Parth (ECC sharing, PKI, transport security), Vedant (CI, Docker, deploy, release) | `honeycore/sharing.py`, `honeycore/pki.py`, `honeycore/transport.py`, `honeychecker/app/security.py`, `pki/`, `.github/`, Dockerfiles, `docker-compose.yml`, `render.yaml`, `frontend/vercel.json`, `docs/deployment.md`, `backend/scripts/smoke_test.py` |
 | **T5 Utilities & Tooling** | Aryan (password-strength utility), Tanmay (attack wordlist builder) | `app/utils/strength.py`, `app/api/utils.py`, `backend/scripts/build_attack_wordlist.py`, `attack/wordlists/` |
@@ -157,18 +157,21 @@ Honeychecker (internal): `POST /hc/register {user_id, index}` · `POST /hc/check
   - `cipher.py` (AES-256-CTR)
   - `baseline.py` (ConventionalVault, AES-GCM)
   - `vault.py` (HoneyVault per §7.8, dependency-injected DTE, works with the stub DTE first)
-  - `sigil.py` hook
+  - `sigil.py` (§7.9)
+  - `backend/scripts/bench_kdf.py` (latency per KDF profile)
   - tests incl. "unlock never raises on 1,000 random passwords"
 
 **T2**
 - Tanuj:
-  - app factory, settings, DB + Alembic
-  - models (`users`, `vaults`, `shares`, `alerts`)
-  - register/login/me with JWT
+  - **1.1 (merges first):** app factory, settings, DB + Alembic; `app/models/*` (`users`,
+    `vaults`, `shares`, `alerts`); `app/security.py` (JWT issue/verify); `app/deps.py`
+    (DB session, current user); `app/errors.py`; test fixtures
   - vault endpoints via `load_honeycore(settings.honeycore_impl)` (stub)
-  - slowapi limits
+  - `app/rate_limit.py` (slowapi limits)
   - pytest API tests
 - Rohan:
+  - `app/api/auth.py` register/login/me + `app/schemas/auth.py` (on Tanuj's 1.1 JWT/deps)
+  - `services/alerts.py`
   - `services/honeywords.py` (generation via `password_model.sample_like`, per-user salt,
     one-hash login membership check)
   - `honeychecker/` service (DB, `/hc/register`, `/hc/check`, `/hc/alarms`)
@@ -202,6 +205,13 @@ Honeychecker (internal): `POST /hc/register {user_id, index}` · `POST /hc/check
     GitHub app access)
   - `docs/deployment.md` draft
 
+**Phase 1 dependency order**
+1. Tanuj 1.1 (models, JWT/`deps.py`, test fixtures) merges to `dev` first.
+2. Then, in parallel: Rohan's auth (`api/auth.py`, `schemas/auth.py`, alerts, honeywords) and
+   Tanuj's vault API, both building on 1.1.
+3. Krrish's frontend scaffold (Vite/Tailwind/shadcn, tokens, shell, router, API client) merges
+   before Chetan starts his pages.
+
 **T5**
 - Aryan: `app/utils/strength.py` (entropy estimate, common-password check, patterns) + `tests/test_strength.py`.
 - Tanmay: `backend/scripts/build_attack_wordlist.py` (top-N from corpus + mangling rules: leet, capitalise,
@@ -212,7 +222,6 @@ Honeychecker (internal): `POST /hc/register {user_id, index}` · `POST /hc/check
 - Nidhi:
   - `dte/username_dte.py` + username model
   - `dte/entry_dte.py`
-  - `sigil.py`
   - `factory.py` "real" wiring
   - `eval/chi_squared.py`
   - publish models; flip default to `HONEYCORE_IMPL=real`
@@ -220,7 +229,6 @@ Honeychecker (internal): `POST /hc/register {user_id, index}` · `POST /hc/check
   - `attack/simulator.py` + `attack/fallback_wordlist.py`
   - `eval/classifier.py`
   - `eval/run_all.py` → `eval/results/latest.json`
-  - performance benchmarks per KDF profile
 
 **T2**
 - Tanuj:
