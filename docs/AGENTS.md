@@ -60,13 +60,21 @@ npm install && npm run dev      # http://localhost:5173
 npm run lint && npm run build
 ```
 
-## 5. Git workflow
-- Branch from `dev`: `feat/<track>-<short-desc>` e.g. `feat/t1-pcfg-trainer`, `fix/t2-login-rate-limit`.
+## 5. Git workflow — HUMANS ONLY
+**AI agents MUST NEVER run any git/GitHub command that changes state** — no `git add`, `commit`,
+`push`, `pull`, `merge`, `rebase`, `reset`, `restore`, `checkout`, `switch`, `stash`, `tag`,
+`cherry-pick`, `revert`, `clean`, `rm`, `mv`, `remote`, and no `gh pr` / `gh repo` / `gh release`.
+Allowed (read-only): `git status`, `git diff`, `git log`, `git show`, `git branch --show-current`.
+Agents only edit files. Humans review `git diff` and run the commit/push commands given by the T1 lead.
+End every session by printing `git status --short` and a suggested commit message.
+
+- Repo: https://github.com/rohansd05/CNS---Honey-Encryption-Vault (admin: Rohan, @rohansd05).
+- Branch from `dev`: `feat/t<N>-<desc>`, e.g. `feat/t1-pcfg-trainer`, `fix/t2-login-rate-limit`.
 - Conventional commits: `feat(dte): ...`, `fix(api): ...`, `test(vault): ...`, `docs: ...`, `chore: ...`.
-- Small PRs into `dev`; at least 1 review from the owning pair; CI must be green.
-- The human author commits under their own GitHub account. Pair-programmed commits add:
+- Small PRs into `dev`; ≥1 approval from a CODEOWNER; CI green.
+- Each person commits from their own GitHub account on files they own. Pair-programmed commits add
   `Co-authored-by: Name <github-email>`.
-- `dev` → `main` only at phase ends, by the T1 lead / T4 deploy owner.
+- `dev` → `main` only at phase ends (T1 lead + Vedant).
 
 ## 6. Definition of done (every task)
 - [ ] Code + tests in the owning track's paths; `ruff`/`pytest` or `lint`/`build` pass locally.
