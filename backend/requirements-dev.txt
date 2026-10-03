@@ -1,0 +1,14 @@
+-r requirements.txt
+
+# ---- Testing & lint ----
+pytest>=8.2
+pytest-cov>=5.0
+hypothesis>=6.100
+ruff>=0.5
+
+# ---- PCFG training & evaluation (NOT installed on Render) ----
+numpy>=1.26
+scipy>=1.13
+scikit-learn>=1.5
+matplotlib>=3.9
+tqdm>=4.66
