@@ -4,3 +4,4 @@ Every member adds their own row via their own PR in Phase 0 (PROJECT-ROADMAP.md 
 
 | Name | GitHub | Track | Role |
 |---|---|---|---|
+| Rohan | @rohansd05 | T2 | Backend API & Honeywords (honeychecker, shares, admin) |
