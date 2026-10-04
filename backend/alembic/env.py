@@ -9,9 +9,9 @@ The database URL is resolved in order:
 
 from __future__ import annotations
 
+import sys
 from logging.config import fileConfig
 from pathlib import Path
-import sys
 
 from alembic import context
 
@@ -20,8 +20,8 @@ _backend_dir = Path(__file__).resolve().parent.parent
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
-import app.models  # noqa: F401  (registers every model on Base.metadata)
-from app.db import Base, _make_engine, normalize_database_url
+import app.models  # noqa: E402, F401  (registers every model on Base.metadata)
+from app.db import Base, _make_engine, normalize_database_url  # noqa: E402
 
 config = context.config
 
