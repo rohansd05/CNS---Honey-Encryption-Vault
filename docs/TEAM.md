@@ -6,3 +6,4 @@ Every member adds their own row via their own PR in Phase 0 (PROJECT-ROADMAP.md 
 |---|---|---|---|
 | Rohan | @rohansd05 | T2 | Backend API & Honeywords (honeychecker, shares, admin) |
 | Dhruv | @dhruvgangurde | T1 | Crypto & Vault Core (KDF, AES-CTR, HoneyVault, sigil, baseline vault) |
+| Aryan | @aryangosavi76 | T5 | Utilities (password strength estimator) |
