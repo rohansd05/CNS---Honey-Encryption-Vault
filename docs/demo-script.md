@@ -18,3 +18,16 @@
 - [ ] Demo user seeded (`scripts/seed_demo.py`), bob exists for sharing.
 - [ ] `DEMO_MODE=true` on the demo deployment.
 - [ ] Latest `eval/results/latest.json` deployed.
+
+
+## Attack Wordlist Builder
+
+Generate the demo attack wordlist from the built-in base words:
+
+```bash
+python3 backend/scripts/build_attack_wordlist.py
+The generated wordlist is written to:
+
+`backend/attack/wordlists/demo_wordlist.txt`
+
+The builder applies the configured mangling rules and limits the generated wordlist to 2,000 entries.
