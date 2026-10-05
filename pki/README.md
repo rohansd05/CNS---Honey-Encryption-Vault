@@ -12,3 +12,12 @@ Planned (Phase 1):
 
 Output goes to `pki/out/` — **gitignored**, together with every `*.pem`, `*.key`, `*.crt`,
 `*.csr`, `*.p12`. Deployments receive certs as base64 env vars (`*_B64` in `.env.example`).
+
+## Usage
+From the root of the repository, run the following scripts to generate PKI materials:
+```bash
+python pki/make_root_ca.py
+python pki/make_issuing_ca.py
+python pki/issue_service_certs.py
+python pki/export_env.py
+```
