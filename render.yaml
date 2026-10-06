@@ -1,0 +1,97 @@
+# =====================================================================
+# Render Blueprint Specification (Draft)
+# Deploys HoneyVault API and Honeychecker as Docker web services on Render
+# Region: singapore, Plan: free tier
+# All environment variables are configured in the Render Dashboard (sync: false)
+# =====================================================================
+
+services:
+  # -------------------------------------------------------------------
+  # 1. HoneyVault API Service
+  # -------------------------------------------------------------------
+  - type: web
+    name: honeyvault-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_ENV
+        sync: false
+      - key: LOG_LEVEL
+        sync: false
+      - key: DEMO_MODE
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_ALGORITHM
+        sync: false
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        sync: false
+      - key: HONEYCORE_IMPL
+        sync: false
+      - key: VAULT_KDF_PROFILE
+        sync: false
+      - key: HONEYWORDS_K
+        sync: false
+      - key: HONEYWORDS_KDF_PROFILE
+        sync: false
+      - key: RATE_LIMIT_LOGIN
+        sync: false
+      - key: RATE_LIMIT_UNLOCK
+        sync: false
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_LOGIN_PASSWORD
+        sync: false
+      - key: DEMO_USERNAME
+        sync: false
+      - key: DEMO_LOGIN_PASSWORD
+        sync: false
+      - key: DEMO_MASTER_PASSWORD
+        sync: false
+      - key: KEY_WRAP_SECRET
+        sync: false
+      - key: HONEYCHECKER_URL
+        sync: false
+      - key: HONEYCHECKER_TRANSPORT
+        sync: false
+      - key: HONEYCHECKER_TIMEOUT_SECONDS
+        sync: false
+      - key: HC_CLIENT_CERT_B64
+        sync: false
+      - key: HC_CLIENT_KEY_B64
+        sync: false
+
+  # -------------------------------------------------------------------
+  # 2. Honeychecker Service (Internal Honeyword Verification Oracle)
+  # -------------------------------------------------------------------
+  - type: web
+    name: honeyvault-honeychecker
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./honeychecker/Dockerfile
+    dockerContext: .
+    healthCheckPath: /hc/health
+    envVars:
+      - key: APP_ENV
+        sync: false
+      - key: LOG_LEVEL
+        sync: false
+      - key: HC_DATABASE_URL
+        sync: false
+      - key: HC_TRANSPORT
+        sync: false
+      - key: HC_ALLOWED_CLIENT_CN
+        sync: false
+      - key: HC_TRUSTED_CA_CERT_B64
+        sync: false
+      - key: HC_ISSUING_CA_CERT_B64
+        sync: false
