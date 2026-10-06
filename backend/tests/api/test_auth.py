@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.deps import get_honeycore
 from app.models.core import Alert, User, Vault
+from app.rate_limit import limiter
 from app.services.honeychecker_client import (
     HoneycheckerClient,
     HoneycheckerUnavailable,
@@ -60,9 +61,11 @@ def fake_hc() -> FakeHoneycheckerClient:
 def override_honeychecker(
     client: TestClient, fake_hc: FakeHoneycheckerClient
 ) -> Generator[None, None, None]:
+    limiter.reset()
     client.app.dependency_overrides[get_honeychecker_client] = lambda: fake_hc
     yield
     client.app.dependency_overrides.pop(get_honeychecker_client, None)
+    limiter.reset()
 
 
 def test_register_and_login_success(

@@ -5,7 +5,6 @@ Owner: T2 — Rohan. Contract: docs/api-contract.md §2, §0.5.
 
 from __future__ import annotations
 
-import hmac
 import logging
 from typing import Annotated
 
@@ -34,10 +33,10 @@ from app.services.honeychecker_client import (
 )
 from app.services.honeywords import (
     HoneywordRecord,
-    create_record,
     find_index,
     hash_sweetword,
 )
+from app.services.registration import register_user
 from honeycore.factory import HoneyCore
 
 logger = logging.getLogger(__name__)
@@ -57,58 +56,15 @@ def register(
     honeycore: Annotated[HoneyCore, Depends(get_honeycore)],
 ) -> RegisterResponse:
     """Register a new user account with sweetwords honeychecker registration."""
-    if hmac.compare_digest(payload.login_password, payload.master_password):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Login password and master password must differ",
-        )
-
-    existing = db.scalar(select(User).where(User.username == payload.username))
-    if existing is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Username already taken",
-        )
-
-    settings = get_settings()
-
-    record, real_index = create_record(
-        real=payload.login_password,
-        k=settings.honeywords_k,
-        profile=settings.honeywords_kdf_profile,
-        password_model=honeycore.password_model,
-    )
-
-    new_user = User(
+    result = register_user(
+        db,
+        honeycore=honeycore,
+        honeychecker=hc_client,
         username=payload.username,
-        is_admin=False,
-        hw_salt=record.salt_b64,
-        hw_hashes=record.hashes,
-        hw_kdf_profile=record.kdf_profile,
+        login_password=payload.login_password,
+        master_password=payload.master_password,
     )
-    db.add(new_user)
-    db.flush()
-
-    # Initialize empty honey vault
-    vault_obj = honeycore.vault_cls.new(settings.vault_kdf_profile)
-    vault_record = Vault(user_id=new_user.id, blob=vault_obj.to_dict())
-    db.add(vault_record)
-
-    try:
-        hc_client.register(user_id=new_user.id, index=real_index)
-    except HoneycheckerUnavailable as exc:
-        db.rollback()
-        logger.error("Failed to register sweetword with honeychecker: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Honeychecker unavailable",
-        ) from exc
-
-    db.commit()
-    db.refresh(new_user)
-
-    logger.info("User registered successfully: username=%s id=%s", new_user.username, new_user.id)
-    return RegisterResponse(id=new_user.id, username=new_user.username)
+    return RegisterResponse(id=result.user.id, username=result.user.username)
 
 
 @router.post(
