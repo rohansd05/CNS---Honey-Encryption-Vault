@@ -34,12 +34,26 @@ Unlock reverses it; any password gives some seed, and `decode` is total, so ever
 a full vault.
 
 ## 3. Stub → real swap
-`HONEYCORE_IMPL=stub` (Phase 0–1) loads `honeycore/stubs.py`; `real` (Phase 2+) loads the real
-modules lazily and raises `NotImplementedError("<module> not implemented yet — owner: <name>")`
-for anything missing. The vault blob shape is identical in both modes.
+`HONEYCORE_IMPL=real` is the default from Phase 2 (`.env.example`); `stub` loads
+`honeycore/stubs.py` and is kept for isolated tests (`backend/tests/conftest.py` forces it) and
+work without the model files. `load_honeycore("real")` imports the real modules lazily and builds
+the bundle once per process:
+
+| Field | Real implementation |
+|---|---|
+| `entry_dte` | `PCFGEntryDTE.load_default()` — username seed (268 B) ‖ password seed (264 B) |
+| `vault_cls` | `HoneyVault.bind(entry_dte)` (Argon2id + AES-256-CTR) |
+| `conventional_vault_cls` | `ConventionalVault` (baseline, AES-GCM) |
+| `password_model` | the entry DTE's `PCFGPasswordModel` (same loaded instance; honeywords) |
+| `sharing` / `pki` | `Sharing()` / `PKI()` |
+
+A missing module raises `NotImplementedError("<module> not implemented yet — owner: <name>")`; a
+missing `pcfg_*_v1.json.gz` raises `RuntimeError` naming the file and the `train_pcfg.py` command.
+The vault blob shape is identical in both modes; stub blobs say "stub" in `scheme`/model ids, and
+both modes use the same sigil tables (`honeycore/sigil.py`).
 
 ## 4. Repository tree
-Legend: ✅ exists after the Phase 0 scaffold · 🔜 planned (owner, phase).
+Legend: ✅ exists · 🔜 planned (owner, phase). Ownership follows PROJECT-ROADMAP.md §2.
 
 ```text
 CNS---Honey-Encryption-Vault/
@@ -76,26 +90,29 @@ CNS---Honey-Encryption-Vault/
 │   ├── alembic/{env.py,script.py.mako,versions/}   ✅ (no migrations yet; T2 Tanuj)
 │   ├── Dockerfile                       🔜 T4 Vedant, P1
 │   ├── app/                             T2
-│   │   ├── main.py · config.py · db.py  ✅
+│   │   ├── main.py · config.py · db.py  ✅ (Tanuj)
+│   │   ├── security.py · rate_limit.py · errors.py · deps.py   ✅ app core (Tanuj)
 │   │   ├── api/
 │   │   │   ├── health.py                ✅
-│   │   │   ├── auth.py · vault.py · attack.py · eval.py   ✅ empty routers (Tanuj)
-│   │   │   ├── users.py · shares.py · admin.py            ✅ empty routers (Rohan)
+│   │   │   ├── vault.py · attack.py · eval.py             ✅ (Tanuj)
+│   │   │   ├── auth.py · admin.py · users.py · shares.py  ✅ (Rohan)
 │   │   │   └── utils.py                 🔜 T5 Aryan, P2 (optional)
-│   │   ├── models/                      ✅ package; users/vaults/shares/alerts 🔜 P1
-│   │   ├── schemas/                     ✅ package
-│   │   ├── services/                    ✅ package; honeywords.py, honeychecker_client.py 🔜 Rohan P1
-│   │   └── utils/                       ✅ package; strength.py 🔜 T5 Aryan P1
+│   │   ├── models/core.py               ✅ users/vaults/shares/alerts (Tanuj)
+│   │   ├── schemas/                     ✅ auth.py (Rohan) · vault.py (Tanuj) · shares/users (Rohan)
+│   │   ├── services/                    ✅ vault_service.py (Tanuj); registration, alerts,
+│   │   │                                   honeywords, honeychecker_client, identity_service,
+│   │   │                                   share_service (Rohan)
+│   │   └── utils/strength.py            ✅ T5 Aryan
 │   ├── honeycore/                       T1 (sharing/pki/transport: T4 Parth)
 │   │   ├── interfaces.py                ✅ FROZEN contract
-│   │   ├── stubs.py · factory.py        ✅
-│   │   ├── kdf.py · cipher.py · vault.py · baseline.py    ✅ placeholders (Dhruv, P1)
-│   │   ├── sigil.py                     ✅ placeholder (Nidhi, P2)
-│   │   ├── sharing.py · pki.py · transport.py             ✅ placeholders (Parth, P1)
+│   │   ├── stubs.py · factory.py        ✅ (Nidhi; "real" wiring P2)
+│   │   ├── kdf.py · cipher.py · vault.py · baseline.py    ✅ (Dhruv)
+│   │   ├── sigil.py                     ✅ (Dhruv)
+│   │   ├── sharing.py · pki.py · transport.py             ✅ (Parth)
 │   │   ├── dte/
-│   │   │   ├── int_codec.py · pcfg.py · password_dte.py   ✅ placeholders (Nidhi, P1)
-│   │   │   └── username_dte.py · entry_dte.py             ✅ placeholders (Nidhi, P2)
-│   │   └── models/                      ✅ .gitkeep; pcfg_*_v1.json.gz 🔜 Nidhi P1–P2
+│   │   │   ├── int_codec.py · pcfg.py · password_dte.py   ✅ (Nidhi, P1)
+│   │   │   └── username_dte.py · entry_dte.py             ✅ (Nidhi, P2)
+│   │   └── models/pcfg_{password,username}_v1.json.gz     ✅ (Nidhi, train_pcfg.py)
 │   ├── attack/                          ✅ package (T1 Dhruv)
 │   │   ├── simulator.py · fallback_wordlist.py            🔜 Dhruv, P2
 │   │   └── wordlists/demo_wordlist.txt  🔜 T5 Tanmay, P2
@@ -104,13 +121,15 @@ CNS---Honey-Encryption-Vault/
 │   │   ├── classifier.py · run_all.py   🔜 Dhruv, P2
 │   │   └── results/latest.json          🔜 generated
 │   ├── scripts/                         ✅ package
-│   │   ├── download_corpus.py · train_pcfg.py             🔜 T1 Nidhi, P1
+│   │   ├── download_corpus.py · train_pcfg.py             ✅ T1 Nidhi
+│   │   ├── bench_kdf.py                 ✅ T1 Dhruv
 │   │   ├── seed_demo.py                 🔜 T2 Tanuj, P2
-│   │   ├── build_attack_wordlist.py     🔜 T5 Tanmay, P1
+│   │   ├── build_attack_wordlist.py     ✅ T5 Tanmay
 │   │   └── smoke_test.py                🔜 T4 Vedant, P2
 │   └── tests/
 │       ├── conftest.py · test_health.py ✅
-│       ├── core/test_stubs.py           ✅ (T1)
+│       ├── core/                        ✅ (T1: DTEs, vault, KDF, cipher, sigil, factory)
+│       ├── api/test_real_mode.py        ✅ (T1 Nidhi: API flow on the real honeycore)
 │       ├── api/conftest.py              ✅ (T2)
 │       └── infra/conftest.py            ✅ (T4)
 ├── honeychecker/                        T2 Rohan (security.py: T4 Parth)
