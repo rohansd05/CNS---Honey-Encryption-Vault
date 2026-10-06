@@ -1,0 +1,113 @@
+services:
+  # =====================================================================
+  # PostgreSQL Database (dual databases: honeyvault & honeychecker)
+  # =====================================================================
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/01-postgres-init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # =====================================================================
+  # Honeychecker Service (internal honeyword oracle)
+  # =====================================================================
+  honeychecker:
+    build:
+      context: .
+      dockerfile: honeychecker/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HC_DATABASE_URL: postgresql+psycopg://honeychecker:honeychecker@db:5432/honeychecker
+      HC_TRANSPORT: plain
+    ports:
+      - "8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # =====================================================================
+  # HoneyVault API Backend
+  # =====================================================================
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://honeyvault:honeyvault@db:5432/honeyvault
+      HONEYCHECKER_URL: http://honeychecker:8001
+      HONEYCHECKER_TRANSPORT: plain
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      honeychecker:
+        condition: service_started
+
+  # =====================================================================
+  # Phase 2 Placeholders
+  # =====================================================================
+  # 1. mTLS Profile (service-to-service mutual TLS for Honeychecker)
+  # In Phase 2, api and honeychecker can mount PKI certs from pki/out and
+  # run under the mtls profile:
+  #
+  # api-mtls:
+  #   extends: api
+  #   profiles: ["mtls"]
+  #   environment:
+  #     HONEYCHECKER_URL: https://honeychecker:8001
+  #     HONEYCHECKER_TRANSPORT: mtls
+  #     HC_CLIENT_CERT_PATH: /app/pki/api-client.crt
+  #     HC_CLIENT_KEY_PATH: /app/pki/api-client.key
+  #     HC_CA_CERT_PATH: /app/pki/root-ca.crt
+  #   volumes:
+  #     - ./pki/out:/app/pki:ro
+  #
+  # honeychecker-mtls:
+  #   extends: honeychecker
+  #   profiles: ["mtls"]
+  #   environment:
+  #     HC_TRANSPORT: mtls
+  #     HC_SERVER_CERT_PATH: /app/pki/honeychecker-server.crt
+  #     HC_SERVER_KEY_PATH: /app/pki/honeychecker-server.key
+  #     HC_TRUSTED_CA_CERT_PATH: /app/pki/root-ca.crt
+  #   volumes:
+  #     - ./pki/out:/app/pki:ro
+  #
+  # 2. Frontend Service (React + Vite SPA)
+  # When the frontend Dockerfile is introduced in Phase 2:
+  #
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   restart: unless-stopped
+  #   ports:
+  #     - "5173:5173"
+  #   environment:
+  #     VITE_API_BASE_URL: http://localhost:8000
+  #     VITE_USE_MOCKS: "false"
+  #     VITE_DEMO_MODE: "true"
+  #   depends_on:
+  #     - api
+
+volumes:
+  postgres_data:
