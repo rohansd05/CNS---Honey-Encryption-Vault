@@ -22,17 +22,25 @@ from honeycore.dte.password_dte import PCFGPasswordModel, parse_template
 from honeycore.dte.pcfg import (
     CHARS_TOKEN,
     CLASS_CHARS,
+    EMAIL_DOMAINS,
+    NO_DOMAIN,
+    NO_DOMAIN_SHARE,
     PATH_WEIGHTS,
+    email_domain_weights,
+    is_email_domain,
     is_heldout,
     is_valid_field,
     load_model,
     parse,
     save_model,
+    split_email,
     template,
     train_password_model,
+    train_username_model,
 )
-from honeycore.interfaces import MAX_FIELD_LEN, PASSWORD_SEED_INTS
-from scripts.train_pcfg import parse_withcount, read_corpus, split_heldout, zipf_weight
+from honeycore.dte.username_dte import PCFGUsernameModel
+from honeycore.interfaces import MAX_FIELD_LEN, PASSWORD_SEED_INTS, USERNAME_SEED_INTS
+from scripts.train_pcfg import main, parse_withcount, read_corpus, split_heldout, zipf_weight
 
 _BASES = ["sun", "blue", "tiger", "maple", "rocket", "pixel", "cobalt", "honey", "orbit", "zebra"]
 _DIGITS = ["", "1", "12", "123", "2024", "7", "99", "007"]
@@ -323,3 +331,143 @@ def test_read_corpus_respects_max_lines_and_plain_weights() -> None:
     assert [pw for pw, _ in pairs] == ["first", "second", "third"]
     assert pairs[0][1] > pairs[1][1] > pairs[2][1] == pytest.approx(1.0)
     assert stats["lines"] == 3
+
+
+# --- username model (§7.4) -----------------------------------------------------------------
+
+# Fixed synthetic usernames (made up, not corpus lines), ranked like a plain list.
+USERNAMES = [f"{b}{d}" for b in _BASES for d in ["", "1", "99", "_x"]] + [
+    "admin",
+    "guest",
+    "pixel@gmail.com",
+    "orbit@yahoo.co.in",
+    "zebra@unknown.org",
+    "a@b@gmail.com",
+    "@gmail.com",
+]
+
+
+@pytest.fixture(scope="module")
+def umodel() -> dict:
+    return train_username_model((u, len(USERNAMES) - i) for i, u in enumerate(USERNAMES))
+
+
+def test_username_model_format(umodel: dict) -> None:
+    assert list(umodel) == [
+        "version",
+        "kind",
+        "max_len",
+        "path",
+        "templates",
+        "segments",
+        "unigrams",
+        "fallback_lengths",
+        "email_domains",
+    ]
+    assert umodel["version"] == 1
+    assert umodel["kind"] == "username"
+    assert umodel["max_len"] == MAX_FIELD_LEN
+    assert umodel["path"] == PATH_WEIGHTS
+    assert umodel["email_domains"] == email_domain_weights()
+    for dist in _distributions(umodel) + [umodel["email_domains"]]:
+        assert all(type(w) is int and w >= 1 for w in dist.values())
+        assert sum(dist.values()) <= MAX_TOTAL
+
+
+def test_email_domain_table() -> None:
+    table = email_domain_weights()
+    assert list(table)[0] == NO_DOMAIN
+    assert list(table)[1:] == list(EMAIL_DOMAINS)
+    assert 28 <= len(EMAIL_DOMAINS) <= 35
+    for d in ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com"]:
+        assert d in EMAIL_DOMAINS
+    for d in ["protonmail.com", "rediffmail.com", "yahoo.co.in", "live.com", "aol.com"]:
+        assert d in EMAIL_DOMAINS
+    assert all(is_email_domain(d) for d in EMAIL_DOMAINS)
+    assert table[NO_DOMAIN] / sum(table.values()) == pytest.approx(NO_DOMAIN_SHARE, abs=0.005)
+    assert max(table.values()) == table[NO_DOMAIN]
+    assert table["gmail.com"] == max(EMAIL_DOMAINS.values())
+    assert list(EMAIL_DOMAINS.values()) == sorted(EMAIL_DOMAINS.values(), reverse=True)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("john@gmail.com", ("gmail.com", "john")),
+        ("x" * 17 + "@rediffmail.com", ("rediffmail.com", "x" * 17)),
+        ("john@unknown.org", (None, "john@unknown.org")),
+        ("a@b@gmail.com", (None, "a@b@gmail.com")),
+        ("@gmail.com", (None, "@gmail.com")),
+        ("john@", (None, "john@")),
+        ("john@Gmail.com", (None, "john@Gmail.com")),
+        ("john@__NONE__", (None, "john@__NONE__")),
+        ("john", (None, "john")),
+    ],
+)
+def test_split_email(value: str, expected: tuple[str | None, str]) -> None:
+    assert split_email(value, EMAIL_DOMAINS) == expected
+
+
+def test_split_email_respects_length_limit() -> None:
+    domain = "x" * 30
+    assert split_email("ab@" + domain, {domain}) == (None, "ab@" + domain)  # 33 > 32 chars
+    assert split_email("a@" + domain, {domain}) == (domain, "a")
+
+
+@pytest.mark.parametrize(
+    ("d", "ok"),
+    [("gmail.com", True), ("x" * 30, True), ("x" * 31, False), ("", False), ("a@b", False)]
+    + [(NO_DOMAIN, False), ("tab\t.com", False), (None, False)],
+)
+def test_is_email_domain(d: object, ok: bool) -> None:
+    assert is_email_domain(d) is ok
+
+
+def test_username_training_uses_local_parts() -> None:
+    m = train_username_model([("pixel@gmail.com", 5), ("bob", 1), ("zed@foo.org", 2)])
+    # Known domain -> local part only; unknown domain -> the whole string ("@" is a symbol).
+    assert m["templates"] == {"L5": 5, "L3S1L3S1L3": 2, "L3": 1}
+    assert "pixel" in m["segments"]["L"]["5"]
+    assert "@" in m["segments"]["S"]["1"]
+
+
+def test_username_training_is_deterministic_and_validates() -> None:
+    pairs = [(u, 10 + i) for i, u in enumerate(USERNAMES)]
+    assert train_username_model(pairs) == train_username_model(list(reversed(pairs)))
+    with pytest.raises(ValueError):
+        train_username_model([("", 1), ("x" * 33, 1), (None, 1)])  # type: ignore[list-item]
+
+
+def test_trained_username_model_works_with_dte(umodel: dict, tmp_path: Path) -> None:
+    path = tmp_path / "pcfg_username_v1.json.gz"
+    save_model(umodel, path)
+    assert load_model(path) == umodel
+    dte = PCFGUsernameModel.from_file(path)
+    for u in ["tiger99", "pixel@gmail.com", "new.user@outlook.com", "zebra@unknown.org", "Q"]:
+        assert dte.decode(dte.encode(u)) == u
+    for _ in range(500):
+        assert is_valid_field(dte.decode(secrets.token_bytes(USERNAME_SEED_INTS * 4)))
+
+
+def test_cli_trains_username_model(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    corpus = tmp_path / "usernames.txt"
+    corpus.write_bytes("\n".join(USERNAMES + ["bad\tline", "x" * 40]).encode("latin-1"))
+    out, heldout = tmp_path / "u.json.gz", tmp_path / "heldout_usernames.tsv"
+    argv = ["--kind", "username", "--input", str(corpus), "--out", str(out)]
+    argv += ["--heldout-out", str(heldout), "--heldout-max", "3"]
+    assert main(argv) == 0
+    model = load_model(out)
+    assert model["kind"] == "username"
+    assert model["email_domains"] == email_domain_weights()
+    rows = heldout.read_text(encoding="ascii").splitlines()
+    n_heldout = sum(is_heldout(u) for u in USERNAMES)
+    assert len(rows) == min(3, n_heldout)
+    assert all(is_heldout(r.split("\t")[0]) for r in rows)
+    # Default format for usernames is plain (Zipf): every valid line was read.
+    report = capsys.readouterr().out
+    assert "PCFG username model trained" in report
+    assert f"valid            {len(USERNAMES)}" in report
+    assert "invalid fields   2" in report
+    first = out.read_bytes()
+    assert main(argv) == 0
+    assert out.read_bytes() == first  # deterministic

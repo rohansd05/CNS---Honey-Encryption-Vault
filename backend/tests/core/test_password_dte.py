@@ -27,6 +27,7 @@ from honeycore.dte.password_dte import (
     PCFGPasswordModel,
     parse_template,
 )
+from honeycore.dte.pcfg import _PCFGBase, parse, template
 from honeycore.interfaces import (
     MAX_FIELD_LEN,
     PASSWORD_SEED_INTS,
@@ -157,6 +158,12 @@ def test_parse_template() -> None:
     assert parse_template("!!") == ("S2", ["!!"])
 
 
+@given(printable_text)
+def test_uses_shared_pcfg_parser(pw: str) -> None:
+    assert issubclass(PCFGPasswordModel, _PCFGBase)
+    assert parse_template(pw) == (template(pw), [seg for _, seg in parse(pw)])
+
+
 def test_default_model_path_is_inside_package() -> None:
     assert DEFAULT_MODEL_PATH.parts[-3:] == ("honeycore", "models", "pcfg_password_v1.json.gz")
 
@@ -199,6 +206,7 @@ def test_encode_is_randomised(toy: PCFGPasswordModel) -> None:
 def test_encode_rejects_invalid(toy: PCFGPasswordModel, bad: str) -> None:
     with pytest.raises(InvalidInputError) as exc:
         toy.encode(bad)
+    assert "password" in str(exc.value)
     if bad:
         assert bad not in str(exc.value)
 
