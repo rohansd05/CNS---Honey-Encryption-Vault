@@ -233,6 +233,14 @@ A wrong master password produces a share of the decoy entry (consistent with HE;
   **(accepted, Phase 0; lets the UI render a "tampered" badge)**
 - `404 {"detail": "Share not found"}` if it does not exist **or** the caller is not the recipient.
 
+### `POST /shares/{id}/tamper` — JWT (demo mode only)
+Flip one byte of the stored envelope ciphertext to simulate tampering in evaluation/demo.
+Requires `DEMO_MODE=true` (otherwise 404).
+| Status | Body |
+|---|---|
+| 200 | `{"tampered": true}` |
+| 404 | `{"detail": "Share not found"}` / `{"detail": "Demo mode disabled"}` |
+
 ---
 
 ## 6. Admin
