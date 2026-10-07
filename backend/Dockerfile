@@ -24,4 +24,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "alembic upgrade head && if [ \"${DEMO_MODE}\" = \"true\" ] && [ -f scripts/seed_demo.py ]; then python -m scripts.seed_demo --if-missing; fi && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

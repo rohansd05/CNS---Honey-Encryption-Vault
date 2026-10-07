@@ -54,6 +54,8 @@ services:
       DATABASE_URL: postgresql+psycopg://honeyvault:honeyvault@db:5432/honeyvault
       HONEYCHECKER_URL: http://honeychecker:8001
       HONEYCHECKER_TRANSPORT: plain
+      ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      JWT_SECRET: ${JWT_SECRET:-change-me}
     ports:
       - "8000:8000"
     depends_on:
@@ -63,11 +65,25 @@ services:
         condition: service_started
 
   # =====================================================================
-  # Phase 2 Placeholders
+  # HoneyVault Frontend Service (React + Vite SPA served via Nginx)
   # =====================================================================
-  # 1. mTLS Profile (service-to-service mutual TLS for Honeychecker)
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    restart: unless-stopped
+    ports:
+      - "5173:8080"
+    depends_on:
+      - api
+
+  # =====================================================================
+  # Phase 2 Placeholders: Parth's mTLS Profile
+  # =====================================================================
   # In Phase 2, api and honeychecker can mount PKI certs from pki/out and
-  # run under the mtls profile:
+  # run under the mtls profile for mutual TLS between services:
   #
   # api-mtls:
   #   extends: api
@@ -91,23 +107,6 @@ services:
   #     HC_TRUSTED_CA_CERT_PATH: /app/pki/root-ca.crt
   #   volumes:
   #     - ./pki/out:/app/pki:ro
-  #
-  # 2. Frontend Service (React + Vite SPA)
-  # When the frontend Dockerfile is introduced in Phase 2:
-  #
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   restart: unless-stopped
-  #   ports:
-  #     - "5173:5173"
-  #   environment:
-  #     VITE_API_BASE_URL: http://localhost:8000
-  #     VITE_USE_MOCKS: "false"
-  #     VITE_DEMO_MODE: "true"
-  #   depends_on:
-  #     - api
 
 volumes:
   postgres_data:
