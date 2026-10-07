@@ -1,4 +1,4 @@
-"""Train the password PCFG model (PROJECT-BRIEF.md §7.3). Owner: T1 — Nidhi.
+"""Train the password / username PCFG models (PROJECT-BRIEF.md §7.3-§7.4). Owner: T1 — Nidhi.
 
 Usage (from backend/)::
 
@@ -6,12 +6,18 @@ Usage (from backend/)::
         --input ../data/raw/rockyou-withcount.txt.bz2 --format withcount \\
         --max-lines 1000000 --out honeycore/models/pcfg_password_v1.json.gz
 
+    python scripts/train_pcfg.py --kind username \\
+        --input ../data/raw/xato-net-10-million-usernames.txt --format plain \\
+        --max-lines 1000000 --out honeycore/models/pcfg_username_v1.json.gz
+
 Input may be plain text, ``.bz2`` or ``.gz``. ``withcount`` lines look like ``"  12345 pw"``;
 ``plain`` lists are ranked, so line ``r`` gets the Zipf weight ``(N / r) ** 0.9`` (i.e.
-``1/r**0.9`` scaled so the last line weighs 1). Lines are decoded as latin-1; only valid
-fields (1..32 printable ASCII) are kept. Held-out passwords (``pcfg.is_heldout``, ~20%) are
-NEVER trained on; up to ``--heldout-max`` of them are written with their weights to
-``data/processed/heldout_passwords.tsv`` (``password<TAB>weight``) for evaluation.
+``1/r**0.9`` scaled so the last line weighs 1). ``--format`` defaults to ``withcount`` for
+passwords and ``plain`` for usernames. Lines are decoded as latin-1; only valid fields
+(1..32 printable ASCII) are kept. Held-out values (``pcfg.is_heldout``, ~20%) are NEVER
+trained on; up to ``--heldout-max`` of them are written with their weights to
+``data/processed/heldout_<kind>s.tsv`` (``value<TAB>weight``) for evaluation. Username models
+also get the fixed built-in email-domain table (``pcfg.email_domain_weights``).
 
 Never print corpus lines: the summary reports counts only.
 """
@@ -38,13 +44,16 @@ from honeycore.dte.pcfg import (  # noqa: E402
     is_valid_field,
     save_model,
     train_password_model,
+    train_username_model,
 )
 
 WITHCOUNT_RE = re.compile(r"^\s*(\d+) (.*)$")
 ZIPF_EXPONENT = 0.9
 MAX_MODEL_BYTES = 10 * 1024 * 1024
-DEFAULT_OUT = BACKEND / "honeycore" / "models" / "pcfg_password_v1.json.gz"
-DEFAULT_HELDOUT = REPO / "data" / "processed" / "heldout_passwords.tsv"
+MODELS = BACKEND / "honeycore" / "models"
+PROCESSED = REPO / "data" / "processed"
+TRAINERS = {"password": train_password_model, "username": train_username_model}
+DEFAULT_FORMAT = {"password": "withcount", "username": "plain"}
 
 
 def open_corpus(path: Path) -> IO[bytes]:
@@ -122,16 +131,19 @@ def split_heldout(
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point. Returns 0 on success, 1 if the model exceeds 10 MB."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    ap.add_argument("--kind", choices=["password"], default="password")
+    ap.add_argument("--kind", choices=sorted(TRAINERS), default="password")
     ap.add_argument("--input", required=True, type=Path)
-    ap.add_argument("--format", choices=["withcount", "plain"], default="withcount")
+    ap.add_argument("--format", choices=["withcount", "plain"], help="default: by --kind")
     ap.add_argument("--max-lines", type=int, default=1_000_000)
-    ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
-    ap.add_argument("--heldout-out", type=Path, default=DEFAULT_HELDOUT)
+    ap.add_argument("--out", type=Path, help="default: honeycore/models/pcfg_<kind>_v1.json.gz")
+    ap.add_argument("--heldout-out", type=Path, help="default: data/processed/heldout_<kind>s.tsv")
     ap.add_argument("--heldout-max", type=int, default=50_000)
     args = ap.parse_args(argv)
     if args.max_lines < 1:
         ap.error("--max-lines must be >= 1")
+    args.format = args.format or DEFAULT_FORMAT[args.kind]
+    args.out = args.out or MODELS / f"pcfg_{args.kind}_v1.json.gz"
+    args.heldout_out = args.heldout_out or PROCESSED / f"heldout_{args.kind}s.tsv"
 
     stats = dict.fromkeys(
         ["lines", "malformed", "invalid", "valid", "kept", "heldout", "heldout_written"], 0
@@ -143,12 +155,12 @@ def main(argv: list[str] | None = None) -> int:
         args.heldout_out.open("w", encoding="ascii", newline="\n") as heldout,
     ):
         pairs = read_corpus(stream, args.format, args.max_lines, stats)
-        model = train_password_model(split_heldout(pairs, heldout, args.heldout_max, stats))
+        model = TRAINERS[args.kind](split_heldout(pairs, heldout, args.heldout_max, stats))
     size = save_model(model, args.out)
     elapsed = time.perf_counter() - started
 
     n_segments = sum(len(b) for by_len in model["segments"].values() for b in by_len.values())
-    print("PCFG password model trained")
+    print(f"PCFG {args.kind} model trained")
     print(f"  input            {args.input} ({args.format})")
     print(f"  lines read       {stats['lines']:,}")
     print(f"  malformed        {stats['malformed']:,}")
@@ -158,6 +170,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  held out         {stats['heldout']:,}  ({stats['heldout_written']:,} written)")
     print(f"  templates        {len(model['templates']):,}")
     print(f"  segment entries  {n_segments:,}  (incl. __CHARS__)")
+    if "email_domains" in model:
+        print(f"  email domains    {len(model['email_domains']) - 1:,}  (+ __NONE__)")
     print(f"  model            {args.out} — {size:,} bytes ({size / 2**20:.2f} MiB gz)")
     print(f"  held-out file    {args.heldout_out}")
     print(f"  time             {elapsed:.1f} s")
