@@ -9,7 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from pydantic import SecretStr, field_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 KDFProfileName = Literal["default", "server_lite", "demo"]
@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     demo_username: str = "demo"
     demo_login_password: SecretStr = SecretStr("")
     demo_master_password: SecretStr = SecretStr("")
+    bob_username: str = "bob"
+    bob_login_password: SecretStr | None = None
+    bob_master_password: SecretStr | None = None
     pcfg_password_model_path: str = "honeycore/models/pcfg_password_v1.json.gz"  # noqa: S105
     pcfg_username_model_path: str = "honeycore/models/pcfg_username_v1.json.gz"
     eval_results_path: str = "eval/results/latest.json"
@@ -77,6 +80,17 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
+
+    @model_validator(mode="after")
+    def _validate_bob_creds(self) -> Settings:
+        if self.app_env == "development":
+            if self.bob_login_password is None:
+                self.bob_login_password = SecretStr("change-me")
+            if self.bob_master_password is None:
+                self.bob_master_password = SecretStr("change-me")
+        elif self.bob_login_password is None or self.bob_master_password is None:
+            raise ValueError("BOB_* credentials must be set in non-development environments")
+        return self
 
 
 @lru_cache

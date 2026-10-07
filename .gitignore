@@ -8,6 +8,7 @@
 *.csr
 *.p12
 pki/out/
+setup_env.py
 
 # ---------- Data (raw corpora are large & sensitive) ----------
 data/*
