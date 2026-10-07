@@ -22,9 +22,18 @@ from sqlalchemy import StaticPool, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 # Force stub honeycore before any app imports.
-os.environ.setdefault("HONEYCORE_IMPL", "stub")
-# Use a throwaway JWT secret for tests.
-os.environ.setdefault("JWT_SECRET", "test-secret-do-not-use")
+# Use os.environ[] (not setdefault) so test values override any real .env file
+# that pydantic-settings would otherwise load from the repo root.
+os.environ["HONEYCORE_IMPL"] = "stub"
+# JWT secret must be ≥ 32 bytes for HS256.
+os.environ["JWT_SECRET"] = "test-secret-do-not-use-in-production-ever-1234"  # noqa: S105
+# KEY_WRAP_SECRET: 32 zero-bytes, base64-encoded.  Fixed test-only value.
+os.environ["KEY_WRAP_SECRET"] = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="  # noqa: S105
+# Leave CA cert vars empty so pki_configured() returns False and
+# identity_service.provision_identity() gracefully skips cert issuance.
+os.environ["ROOT_CA_CERT_B64"] = ""
+os.environ["ISSUING_CA_CERT_B64"] = ""
+os.environ["ISSUING_CA_KEY_B64"] = ""
 
 from app.config import get_settings  # noqa: E402
 

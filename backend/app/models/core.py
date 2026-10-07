@@ -74,3 +74,11 @@ class Alert(Base):
     user_agent: Mapped[str | None] = mapped_column(String, nullable=True)
 
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
+
+
+class DemoArtifact(Base):
+    __tablename__ = "demo_artifacts"
+
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    payload: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=_utc_now)
