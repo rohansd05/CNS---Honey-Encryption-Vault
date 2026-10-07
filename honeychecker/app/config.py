@@ -30,9 +30,19 @@ class Settings(BaseSettings):
     hc_allowed_client_cn: str = "honeyvault-api"
     hc_server_cert_path: str = "../pki/out/honeychecker-server.crt"
     hc_server_key_path: str = "../pki/out/honeychecker-server.key"
-    hc_trusted_ca_cert_path: str = "../pki/out/root-ca.crt"
+    # Service CA trust store (Phase 4): points at the Service CA, NOT the Root CA.
+    # The Service CA is the trust anchor for service-to-service authentication.
+    # A user identity cert (Root → Issuing CA → username) can never build a chain
+    # to the Service CA, so it cannot authenticate to the honeychecker.
+    hc_trusted_ca_cert_path: str = "../pki/out/service-ca.crt"
     hc_trusted_ca_cert_b64: str = ""
+    # Legacy / user-identity issuing CA fields (kept for sharing layer; not used
+    # by the honeychecker's verify_caller).
     hc_issuing_ca_cert_b64: str = ""
+    # Service CA convenience alias (same as hc_trusted_ca_cert_path; explicit name
+    # makes deployment scripts unambiguous).
+    hc_service_ca_cert_path: str = "../pki/out/service-ca.crt"
+    hc_service_ca_cert_b64: str = ""
 
 
 @lru_cache
