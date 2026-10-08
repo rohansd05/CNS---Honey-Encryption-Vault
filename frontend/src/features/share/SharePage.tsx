@@ -1,18 +1,32 @@
-// owner: Krrish (T3) — share page placeholder (full impl in Phase 2 K2.2)
+import { ShareInbox } from './ShareInbox';
+import { ShareSent } from './ShareSent';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 export function SharePage() {
   return (
-    <div style={{ minHeight: 'calc(100vh - 128px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-      <div style={{
-        background: 'var(--bg-surface)', border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-xl)', padding: '3rem', textAlign: 'center', maxWidth: 500, width: '100%',
-      }}>
-        <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>📬</div>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Secure Share</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
-          Share page — inbox, sent, open share flows with PKI signature validation
-        </p>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Owner: Krrish · Full impl Phase 2 K2.2</p>
+    <div className="container mx-auto p-4 md:p-8 space-y-8 max-w-6xl">
+      <div className="flex flex-col md:flex-row items-center gap-4 rounded-xl border border-border bg-bg-surface p-6 shadow-elevated">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/20 text-3xl">📬</div>
+        <div className="text-center md:text-left">
+          <h1 className="text-2xl font-bold text-text-primary mb-1">Secure Share</h1>
+          <p className="text-sm text-text-secondary">
+            Send and receive encrypted vault entries securely.
+          </p>
+        </div>
       </div>
+      
+      <Tabs defaultValue="inbox" className="w-full">
+        <TabsList className="grid w-full md:w-[400px] grid-cols-2 mb-6">
+          <TabsTrigger value="inbox">Inbox</TabsTrigger>
+          <TabsTrigger value="sent">Sent</TabsTrigger>
+        </TabsList>
+        <TabsContent value="inbox">
+          <ShareInbox />
+        </TabsContent>
+        <TabsContent value="sent">
+          <ShareSent />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
