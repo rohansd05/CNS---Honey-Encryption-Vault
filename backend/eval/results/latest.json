@@ -1,0 +1,447 @@
+{
+  "timestamp": "2026-10-08T10:37:03Z",
+  "version": "1.0.0",
+  "dataset": {
+    "corpus": "SecLists RockYou, Zipf-ranked weights",
+    "training_samples": null,
+    "test_samples": 50000,
+    "heldout_passwords_file": "data/processed/heldout_passwords.tsv",
+    "heldout_usernames_file": null,
+    "models": {
+      "password_model": "pcfg-password-v1",
+      "username_model": "pcfg-username-v1",
+      "entry_seed_len": 532
+    }
+  },
+  "round_trip": {
+    "trials": 25000,
+    "exact_match_count": 25000,
+    "success_rate": 1.0,
+    "decode_totality": {
+      "random_seed_trials": 60000,
+      "failed_decodes": 0,
+      "totality_rate": 1.0,
+      "per_dte": {
+        "password": {
+          "random_seed_trials": 20000,
+          "failed_decodes": 0,
+          "totality_rate": 1.0
+        },
+        "username": {
+          "random_seed_trials": 20000,
+          "failed_decodes": 0,
+          "totality_rate": 1.0
+        },
+        "entry": {
+          "random_seed_trials": 20000,
+          "failed_decodes": 0,
+          "totality_rate": 1.0
+        }
+      }
+    },
+    "passwords": {
+      "trials": 10000,
+      "exact_match_count": 10000,
+      "success_rate": 1.0,
+      "wrong_seed_length": 0,
+      "errors": {},
+      "source": "heldout"
+    },
+    "usernames": {
+      "trials": 10000,
+      "exact_match_count": 10000,
+      "success_rate": 1.0,
+      "wrong_seed_length": 0,
+      "errors": {},
+      "source": "model_samples (held-out username file missing)"
+    },
+    "entries": {
+      "trials": 5000,
+      "exact_match_count": 5000,
+      "success_rate": 1.0,
+      "wrong_seed_length": 0,
+      "errors": {},
+      "source": "(username, password) pairs from the two sets above; model_samples (held-out username file missing)"
+    },
+    "heldout_passwords_available": 50000
+  },
+  "chi_squared": {
+    "n": 20000,
+    "seed": 7,
+    "alpha": 0.05,
+    "interpretation": "p > 0.05: no evidence of deviation (uniform seeds / decoys follow the model)",
+    "password": {
+      "model": "pcfg-password-v1",
+      "seed_byte_uniformity": {
+        "test": "seed_byte_uniformity",
+        "n": 20000,
+        "chi2": 390.6073212121212,
+        "dof": 255,
+        "p_value": 9.362406103949806e-08
+      },
+      "seed_int_uniformity": {
+        "test": "seed_int_uniformity",
+        "n": 20000,
+        "chi2": 426.62451629010116,
+        "dof": 15,
+        "p_value": 1.7358313525667528e-81
+      },
+      "seed_int_uniformity_control": {
+        "test": "seed_int_uniformity_control",
+        "n": 20000,
+        "chi2": 17.426362107878035,
+        "dof": 15,
+        "p_value": 0.2940216064981968
+      },
+      "template_goodness_of_fit": {
+        "test": "template_goodness_of_fit",
+        "n": 20000,
+        "chi2": 36.40386773653889,
+        "dof": 50,
+        "p_value": 0.924881426235355
+      }
+    },
+    "username": {
+      "model": "pcfg-username-v1",
+      "skipped": "seed_byte_uniformity / seed_int_uniformity: no held-out usernames",
+      "seed_int_uniformity_control": {
+        "test": "seed_int_uniformity_control",
+        "n": 20000,
+        "chi2": 8.382795497624787,
+        "dof": 15,
+        "p_value": 0.9075209147910533
+      },
+      "template_goodness_of_fit": {
+        "test": "template_goodness_of_fit",
+        "n": 20000,
+        "chi2": 54.534398953305455,
+        "dof": 50,
+        "p_value": 0.3061978786400413
+      }
+    },
+    "seed_uniformity": {
+      "statistic": 390.6073212121212,
+      "degrees_of_freedom": 255,
+      "p_value": 9.362406103949806e-08,
+      "null_hypothesis_accepted": false,
+      "note": "Password model: bytes of seeds from encoding held-out passwords vs uniform (256 bins)",
+      "n": 20000
+    },
+    "template_goodness_of_fit": {
+      "statistic": 36.40386773653889,
+      "degrees_of_freedom": 50,
+      "p_value": 0.924881426235355,
+      "null_hypothesis_accepted": true,
+      "note": "Password model: templates of decoded random seeds vs model probabilities",
+      "n": 20000
+    }
+  },
+  "classifier": {
+    "password": {
+      "n": 10000,
+      "logreg": {
+        "accuracy_mean": 0.5005499999999999,
+        "accuracy_std": 0.004840970976983848,
+        "roc_auc_mean": 0.51747305
+      },
+      "random_forest": {
+        "accuracy_mean": 0.7408500000000001,
+        "accuracy_std": 0.004705316142407453,
+        "roc_auc_mean": 0.81015685
+      },
+      "interpretation": "≈0.5 = indistinguishable"
+    },
+    "username": {
+      "skipped": "no held-out usernames file"
+    }
+  },
+  "distinguisher": {
+    "classifier": "Logistic Regression + Random Forest (5-fold stratified CV)",
+    "features": [
+      "length",
+      "n_lower",
+      "n_upper",
+      "n_digit",
+      "n_symbol",
+      "n_segments",
+      "template_logprob",
+      "mean_char_unigram_logprob",
+      "longest_digit_run",
+      "starts_with_capital",
+      "ends_with_digit",
+      "shannon_entropy"
+    ],
+    "metrics": {
+      "accuracy": 0.7408500000000001,
+      "roc_auc": 0.81015685,
+      "precision": 0.7363482907965387,
+      "recall": 0.7614000000000001,
+      "baseline_chance": 0.5
+    },
+    "metrics_classifier": "random_forest",
+    "per_classifier": {
+      "logreg": {
+        "accuracy_mean": 0.5005499999999999,
+        "accuracy_std": 0.004840970976983848,
+        "roc_auc_mean": 0.51747305
+      },
+      "random_forest": {
+        "accuracy_mean": 0.7408500000000001,
+        "accuracy_std": 0.004705316142407453,
+        "roc_auc_mean": 0.81015685
+      }
+    },
+    "n_per_class": 10000,
+    "target_accuracy": 0.6,
+    "ideal_accuracy": 0.5,
+    "conclusion": "Password distinguisher (random_forest) accuracy 0.741 vs ideal 0.5: misses the <= 0.60 target: the classifier separates real passwords from decoys."
+  },
+  "template_frequencies": [
+    {
+      "template": "L6",
+      "model_frequency": 0.21192,
+      "decoded_frequency": 0.21015,
+      "heldout_frequency": 0.21335,
+      "description": "6 letters"
+    },
+    {
+      "template": "L7",
+      "model_frequency": 0.1262,
+      "decoded_frequency": 0.12665,
+      "heldout_frequency": 0.15065,
+      "description": "7 letters"
+    },
+    {
+      "template": "D6",
+      "model_frequency": 0.12018,
+      "decoded_frequency": 0.1212,
+      "heldout_frequency": 0.0905,
+      "description": "6 digits"
+    },
+    {
+      "template": "L8",
+      "model_frequency": 0.11334,
+      "decoded_frequency": 0.11095,
+      "heldout_frequency": 0.1133,
+      "description": "8 letters"
+    },
+    {
+      "template": "L9",
+      "model_frequency": 0.04878,
+      "decoded_frequency": 0.04835,
+      "heldout_frequency": 0.0421,
+      "description": "9 letters"
+    },
+    {
+      "template": "L5",
+      "model_frequency": 0.04296,
+      "decoded_frequency": 0.0438,
+      "heldout_frequency": 0.05835,
+      "description": "5 letters"
+    },
+    {
+      "template": "L6D1",
+      "model_frequency": 0.02644,
+      "decoded_frequency": 0.02625,
+      "heldout_frequency": 0.03155,
+      "description": "6 letters + 1 digit"
+    },
+    {
+      "template": "D5",
+      "model_frequency": 0.02587,
+      "decoded_frequency": 0.0261,
+      "heldout_frequency": 0.0033,
+      "description": "5 digits"
+    },
+    {
+      "template": "L6D2",
+      "model_frequency": 0.02369,
+      "decoded_frequency": 0.02505,
+      "heldout_frequency": 0.02725,
+      "description": "6 letters + 2 digits"
+    },
+    {
+      "template": "L10",
+      "model_frequency": 0.02322,
+      "decoded_frequency": 0.02315,
+      "heldout_frequency": 0.02135,
+      "description": "10 letters"
+    },
+    {
+      "template": "L5D2",
+      "model_frequency": 0.02201,
+      "decoded_frequency": 0.0244,
+      "heldout_frequency": 0.01985,
+      "description": "5 letters + 2 digits"
+    },
+    {
+      "template": "L5D1",
+      "model_frequency": 0.02112,
+      "decoded_frequency": 0.0221,
+      "heldout_frequency": 0.0272,
+      "description": "5 letters + 1 digit"
+    },
+    {
+      "template": "D8",
+      "model_frequency": 0.02065,
+      "decoded_frequency": 0.0207,
+      "heldout_frequency": 0.01695,
+      "description": "8 digits"
+    },
+    {
+      "template": "L4D2",
+      "model_frequency": 0.01949,
+      "decoded_frequency": 0.0196,
+      "heldout_frequency": 0.0187,
+      "description": "4 letters + 2 digits"
+    },
+    {
+      "template": "L7D1",
+      "model_frequency": 0.01863,
+      "decoded_frequency": 0.01885,
+      "heldout_frequency": 0.01955,
+      "description": "7 letters + 1 digit"
+    }
+  ],
+  "attack": {
+    "kdf_profile": "demo",
+    "entries_per_vault": 8,
+    "wordlist": "attack/wordlists/demo_wordlist.txt",
+    "wordlist_size": 629,
+    "guesses": 500,
+    "real_guess_index": 129,
+    "conventional": {
+      "cracked": true,
+      "guess_index": 129,
+      "elapsed_ms": 698,
+      "recovered_entries": 8,
+      "recovered_entries_are_real": true
+    },
+    "honey": {
+      "guesses_tried": 500,
+      "elapsed_ms": 3360,
+      "ms_per_guess": 6.72,
+      "distinct_vaults": 500,
+      "distinct_vault_rate": 1.0,
+      "samples_returned": 25,
+      "sample_fields_well_formed": true,
+      "correct_password_recovers_real_entries": true
+    }
+  },
+  "kdf": {
+    "default": {
+      "params": {
+        "time_cost": 3,
+        "memory_cost_kib": 65536,
+        "parallelism": 4,
+        "hash_len": 32
+      },
+      "reps": 15,
+      "derive_ms": {
+        "p50": 49.62,
+        "p95": 58.17,
+        "mean": 50.92,
+        "min": 46.95,
+        "max": 68.79
+      },
+      "unlock_ms": {
+        "p50": 49.16,
+        "p95": 51.31,
+        "mean": 49.27,
+        "min": 47.02,
+        "max": 51.98
+      }
+    },
+    "server_lite": {
+      "params": {
+        "time_cost": 2,
+        "memory_cost_kib": 19456,
+        "parallelism": 1,
+        "hash_len": 32
+      },
+      "reps": 15,
+      "derive_ms": {
+        "p50": 24.81,
+        "p95": 25.8,
+        "mean": 24.9,
+        "min": 24.29,
+        "max": 26.37
+      },
+      "unlock_ms": {
+        "p50": 25.34,
+        "p95": 25.54,
+        "mean": 25.24,
+        "min": 24.5,
+        "max": 25.56
+      }
+    },
+    "demo": {
+      "params": {
+        "time_cost": 1,
+        "memory_cost_kib": 8192,
+        "parallelism": 1,
+        "hash_len": 32
+      },
+      "reps": 15,
+      "derive_ms": {
+        "p50": 6.14,
+        "p95": 6.31,
+        "mean": 6.17,
+        "min": 6.08,
+        "max": 6.33
+      },
+      "unlock_ms": {
+        "p50": 6.4,
+        "p95": 6.53,
+        "mean": 6.4,
+        "min": 6.3,
+        "max": 6.6
+      }
+    }
+  },
+  "performance": {
+    "unlock_p50_ms": 49.16,
+    "unlock_p95_ms": 51.31,
+    "target_p95_ms": 1500,
+    "argon2_kdf_profile": "default (t=3, m=64 MiB, p=4)",
+    "entries": 8,
+    "measured": "in-process HoneyVault.unlock (no HTTP); see kdf for every profile"
+  },
+  "meta": {
+    "git_commit": "c8b08aa",
+    "timestamp": "2026-10-08T10:37:03Z",
+    "mode": "full",
+    "seed": 7,
+    "config": {
+      "round_trip_passwords": 10000,
+      "round_trip_usernames": 10000,
+      "round_trip_entries": 5000,
+      "totality_seeds": 20000,
+      "chi_n": 20000,
+      "classifier_n": 10000,
+      "template_n": 20000,
+      "attack_guesses": 500,
+      "kdf_reps": 15
+    },
+    "models": {
+      "password_model": "pcfg-password-v1",
+      "username_model": "pcfg-username-v1",
+      "entry_seed_len": 532
+    },
+    "entry_dte_impl": "eval.run_all.ConcatEntryDTE (PCFGEntryDTE not landed yet)",
+    "honeycore_impl": "real",
+    "dataset_note": "SecLists RockYou, Zipf-ranked weights",
+    "python": "3.12.10",
+    "platform": "Windows-11",
+    "step_seconds": {
+      "round_trip": 3.14,
+      "chi_squared": 5.76,
+      "template_frequencies": 0.42,
+      "classifier": 30.78,
+      "attack": 4.32,
+      "kdf": 3.09
+    },
+    "duration_s": 48.25,
+    "reproducibility": "held-out sampling, random seeds and CV folds use NumPy RNG(seed); decoys (model.sample), vault salts/nonces and the attack password use `secrets`, so classifier/attack numbers vary slightly between runs"
+  }
+}
