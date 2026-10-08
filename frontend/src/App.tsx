@@ -1,4 +1,5 @@
 // owner: Krrish (T3) — app root
+import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
@@ -7,18 +8,18 @@ import { AuthProvider, ProtectedRoute, AdminRoute } from '@/lib/auth';
 import { AppShell } from '@/components/layout/AppShell';
 
 // Pages — Krrish owns
-import { LoginPage } from '@/features/auth/LoginPage';
-import { RegisterPage } from '@/features/auth/RegisterPage';
-import { VaultPage } from '@/features/vault/VaultPage';
-import { SharePage } from '@/features/share/SharePage';
-import { NotFoundPage } from '@/features/NotFoundPage';
+const LoginPage = React.lazy(() => import('@/features/auth/LoginPage').then(m => ({ default: m.LoginPage })));
+const RegisterPage = React.lazy(() => import('@/features/auth/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const VaultPage = React.lazy(() => import('@/features/vault/VaultPage').then(m => ({ default: m.VaultPage })));
+const SharePage = React.lazy(() => import('@/features/share/SharePage').then(m => ({ default: m.SharePage })));
+const NotFoundPage = React.lazy(() => import('@/features/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 // Pages — Chetan owns
-import { LandingPage } from '@/features/landing/LandingPage';
-import { AttackLabPage } from '@/features/attack/AttackLabPage';
-import { EvaluationPage } from '@/features/evaluation/EvaluationPage';
-import { AdminPage } from '@/features/admin/AdminPage';
-import { AboutPage } from '@/features/about/AboutPage';
+const LandingPage = React.lazy(() => import('@/features/landing/LandingPage').then(m => ({ default: m.LandingPage })));
+const AttackLabPage = React.lazy(() => import('@/features/attack/AttackLabPage').then(m => ({ default: m.AttackLabPage })));
+const EvaluationPage = React.lazy(() => import('@/features/evaluation/EvaluationPage').then(m => ({ default: m.EvaluationPage })));
+const AdminPage = React.lazy(() => import('@/features/admin/AdminPage').then(m => ({ default: m.AdminPage })));
+const AboutPage = React.lazy(() => import('@/features/about/AboutPage').then(m => ({ default: m.AboutPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,41 +33,43 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <BrowserRouter>
-            <Routes>
-              <Route element={<AppShell />}>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                <Route
-                  path="/vault"
-                  element={
-                    <ProtectedRoute>
-                      <VaultPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/share"
-                  element={
-                    <ProtectedRoute>
-                      <SharePage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route path="/attack" element={<AttackLabPage />} />
-                <Route path="/evaluation" element={<EvaluationPage />} />
-                <Route
-                  path="/admin"
-                  element={
-                    <AdminRoute>
-                      <AdminPage />
-                    </AdminRoute>
-                  }
-                />
-                <Route path="/about" element={<AboutPage />} />
-                <Route path="*" element={<NotFoundPage />} />
-              </Route>
-            </Routes>
+            <Suspense fallback={<div className="flex h-screen items-center justify-center text-text-muted">Loading...</div>}>
+              <Routes>
+                <Route element={<AppShell />}>
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/register" element={<RegisterPage />} />
+                  <Route
+                    path="/vault"
+                    element={
+                      <ProtectedRoute>
+                        <VaultPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/share"
+                    element={
+                      <ProtectedRoute>
+                        <SharePage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/attack" element={<AttackLabPage />} />
+                  <Route path="/evaluation" element={<EvaluationPage />} />
+                  <Route
+                    path="/admin"
+                    element={
+                      <AdminRoute>
+                        <AdminPage />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route path="/about" element={<AboutPage />} />
+                  <Route path="*" element={<NotFoundPage />} />
+                </Route>
+              </Routes>
+            </Suspense>
           </BrowserRouter>
           <Toaster
             position="bottom-right"
