@@ -72,3 +72,12 @@ pki/out/
 `pki/out/` is gitignored together with every `*.pem`, `*.key`, `*.crt`, `*.csr`, `*.p12`.
 Deployments receive certs as base64 env vars (`*_B64` in `.env.example`).
 `HC_TRUSTED_CA_CERT_B64` = Service CA cert (not Root CA).
+
+## mTLS Compose Setup
+
+To run the full stack with mTLS between the API and Honeychecker, use the overlay compose file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.mtls.yml up -d --build
+python backend/scripts/verify_mtls.py
+```
