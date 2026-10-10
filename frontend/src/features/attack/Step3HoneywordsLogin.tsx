@@ -38,11 +38,25 @@ export function Step3HoneywordsLogin({ onPrev, onResetFlow }: Step3HoneywordsLog
     index: number;
     sweetword: string;
     timestamp: string;
+    status: 'alarm' | 'success';
+    errorMessage?: string;
   } | null>(null);
 
+  const [testingIndex, setTestingIndex] = useState<number | null>(null);
   const [testedIndices, setTestedIndices] = useState<number[]>([]);
 
+  const formatAlarmTimestamp = (iso: string) => {
+    try {
+      const str = iso.includes('Z') || iso.includes('+') ? iso : `${iso}Z`;
+      return new Date(str).toLocaleTimeString();
+    } catch {
+      return iso;
+    }
+  };
+
   const handleTestLogin = (sweetword: string, index: number) => {
+    setTestingIndex(index);
+
     // 1. Dispatch custom event so the attack mock handler adds a real-time breach alarm
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
@@ -51,12 +65,6 @@ export function Step3HoneywordsLogin({ onPrev, onResetFlow }: Step3HoneywordsLog
         }),
       );
     }
-
-    setLastAttempt({
-      index,
-      sweetword,
-      timestamp: new Date().toLocaleTimeString(),
-    });
 
     if (!testedIndices.includes(index)) {
       setTestedIndices((prev) => [...prev, index]);
@@ -67,19 +75,34 @@ export function Step3HoneywordsLogin({ onPrev, onResetFlow }: Step3HoneywordsLog
       { username: honeywordsData?.username ?? 'demo', login_password: sweetword },
       {
         onError: (err) => {
+          setTestingIndex(null);
           // A 401 is expected and desired: the API does not tip off the attacker!
           const message = err instanceof Error ? err.message : 'Invalid credentials';
+          setLastAttempt({
+            index,
+            sweetword,
+            timestamp: new Date().toLocaleTimeString(),
+            status: 'alarm',
+            errorMessage: message,
+          });
           toast.warning(`Login failed with HTTP 401: "${message}"`);
           // 3. Immediately refetch the alarm feed to pull the new Honeychecker alert
           setTimeout(() => {
             void refetchAlarms();
-          }, 150);
+          }, 200);
         },
         onSuccess: () => {
-          toast.info('Login accepted (real password tested)');
+          setTestingIndex(null);
+          setLastAttempt({
+            index,
+            sweetword,
+            timestamp: new Date().toLocaleTimeString(),
+            status: 'success',
+          });
+          toast.success('Login accepted — genuine password was tested!');
           setTimeout(() => {
             void refetchAlarms();
-          }, 150);
+          }, 200);
         },
       },
     );
@@ -146,10 +169,10 @@ export function Step3HoneywordsLogin({ onPrev, onResetFlow }: Step3HoneywordsLog
       </div>
 
       {/* =========================================================================
-          PROMINENT HONEYCHECKER BREACH ALARM BANNER
+          PROMINENT HONEYCHECKER BREACH ALARM / SUCCESS BANNER
          ========================================================================= */}
       <AnimatePresence>
-        {lastAttempt && (
+        {lastAttempt && lastAttempt.status === 'alarm' && (
           <motion.div
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : -12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -188,20 +211,20 @@ export function Step3HoneywordsLogin({ onPrev, onResetFlow }: Step3HoneywordsLog
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs pt-1">
               <div className="rounded-lg bg-bg-surface/80 p-3 border border-danger/30 space-y-0.5">
                 <div className="text-text-muted text-[11px]">Submitted Sweetword</div>
-                <div className="font-mono font-bold text-danger">"{lastAttempt.sweetword}"</div>
+                <div className="font-mono font-bold text-danger truncate">"{lastAttempt.sweetword}"</div>
                 <div className="text-[10px] text-text-muted">Index #{String(lastAttempt.index)} of 10</div>
               </div>
 
               <div className="rounded-lg bg-bg-surface/80 p-3 border border-danger/30 space-y-0.5">
                 <div className="text-text-muted text-[11px]">Honeychecker Verdict</div>
                 <div className="font-mono font-bold text-danger">MISMATCH (Alarm Logged)</div>
-                <div className="text-[10px] text-text-muted">Internal latency: 12ms</div>
+                <div className="text-[10px] text-text-muted">Tripwire recorded to audit log</div>
               </div>
 
               <div className="rounded-lg bg-bg-surface/80 p-3 border border-danger/30 space-y-0.5">
                 <div className="text-text-muted text-[11px]">Attacker-Facing Response</div>
                 <div className="font-mono font-bold text-text-primary">HTTP 401 Unauthorized</div>
-                <div className="text-[10px] text-text-muted">"Invalid credentials" (Generic)</div>
+                <div className="text-[10px] text-text-muted">"{lastAttempt.errorMessage ?? 'Invalid credentials'}"</div>
               </div>
 
               <div className="rounded-lg bg-bg-surface/80 p-3 border border-danger/30 space-y-0.5">
@@ -218,6 +241,69 @@ export function Step3HoneywordsLogin({ onPrev, onResetFlow }: Step3HoneywordsLog
                 With Honeywords, any guess of a decoy sweetword is mathematical proof that an attacker cracked the hash database,
                 allowing immediate account isolation without the attacker realizing they were detected.
               </span>
+            </div>
+          </motion.div>
+        )}
+
+        {lastAttempt && lastAttempt.status === 'success' && (
+          <motion.div
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : -12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="rounded-xl border-2 border-accent bg-accent/10 p-6 shadow-glow space-y-4"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-accent text-black font-bold">
+                  <KeyRound size={24} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-text-primary">
+                      AUTHENTIC PASSWORD TESTED — LOGIN ACCEPTED
+                    </h3>
+                    <Badge variant="outline" className="border-accent text-accent font-mono text-xs">
+                      SUCCESS
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    Sweetword candidate #{String(lastAttempt.index)} was the authentic master password!
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-text-muted flex items-center gap-1">
+                  <Clock size={12} /> {lastAttempt.timestamp}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs pt-1">
+              <div className="rounded-lg bg-bg-surface/80 p-3 border border-accent/30 space-y-0.5">
+                <div className="text-text-muted text-[11px]">Submitted Password</div>
+                <div className="font-mono font-bold text-accent truncate">"{lastAttempt.sweetword}"</div>
+                <div className="text-[10px] text-text-muted">Index #{String(lastAttempt.index)} of 10</div>
+              </div>
+
+              <div className="rounded-lg bg-bg-surface/80 p-3 border border-accent/30 space-y-0.5">
+                <div className="text-text-muted text-[11px]">Honeychecker Verdict</div>
+                <div className="font-mono font-bold text-success">MATCH (No Alarm)</div>
+                <div className="text-[10px] text-text-muted">Genuine user authentication path</div>
+              </div>
+
+              <div className="rounded-lg bg-bg-surface/80 p-3 border border-accent/30 space-y-0.5">
+                <div className="text-text-muted text-[11px]">Attacker-Facing Response</div>
+                <div className="font-mono font-bold text-success">HTTP 200 OK</div>
+                <div className="text-[10px] text-text-muted">Valid JWT Session Issued</div>
+              </div>
+
+              <div className="rounded-lg bg-bg-surface/80 p-3 border border-accent/30 space-y-0.5">
+                <div className="text-text-muted text-[11px]">Juels & Rivest Implication</div>
+                <div className="font-mono font-bold text-text-primary">1 in k Success (10%)</div>
+                <div className="text-[10px] text-text-muted">Single lucky guess (unpreventable)</div>
+              </div>
             </div>
           </motion.div>
         )}
@@ -247,24 +333,36 @@ export function Step3HoneywordsLogin({ onPrev, onResetFlow }: Step3HoneywordsLog
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {honeywordsData?.cracked_sweetwords.map((sweetword, idx) => {
               const isTested = testedIndices.includes(idx);
-              const isLast = lastAttempt?.index === idx;
+              const isLast = lastAttempt !== null && lastAttempt.index === idx;
+              const isLastAlarm = isLast && lastAttempt.status === 'alarm';
+              const isLastSuccess = isLast && lastAttempt.status === 'success';
 
               return (
                 <div
                   key={idx}
                   className={`rounded-xl border p-4 transition-all duration-200 flex flex-col justify-between gap-3 ${
-                    isLast
+                    isLastAlarm
                       ? 'border-danger bg-danger/10 shadow-[0_0_16px_rgba(239,68,68,0.2)]'
-                      : isTested
-                        ? 'border-border bg-bg-elevated/70'
-                        : 'border-border bg-bg-surface hover:border-accent/50 hover:bg-bg-elevated'
+                      : isLastSuccess
+                        ? 'border-accent bg-accent/10 shadow-glow'
+                        : isTested
+                          ? 'border-border bg-bg-elevated/70'
+                          : 'border-border bg-bg-surface hover:border-accent/50 hover:bg-bg-elevated'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <Badge
-                          variant={isLast ? 'destructive' : isTested ? 'secondary' : 'outline'}
+                          variant={
+                            isLastAlarm
+                              ? 'destructive'
+                              : isLastSuccess
+                                ? 'default'
+                                : isTested
+                                  ? 'secondary'
+                                  : 'outline'
+                          }
                           className="font-mono text-xs px-2 py-0.5"
                         >
                           Sweetword #{String(idx)}
@@ -280,27 +378,27 @@ export function Step3HoneywordsLogin({ onPrev, onResetFlow }: Step3HoneywordsLog
 
                     {isTested && (
                       <Badge variant="outline" className="text-[10px] text-danger border-danger/40">
-                        Alarm Fired
+                        Tested
                       </Badge>
                     )}
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
                     <span className="text-[11px] text-text-muted">
-                      {idx === 4 ? 'PCFG Generator Target' : 'Decoy Sweetword (sample_like)'}
+                      Candidate Sweetword #{String(idx)}
                     </span>
 
                     <Button
                       size="sm"
-                      variant={isLast ? 'destructive' : 'outline'}
+                      variant={isLastAlarm ? 'destructive' : 'outline'}
                       onClick={() => {
                         handleTestLogin(sweetword, idx);
                       }}
-                      disabled={loginMutation.isPending}
+                      disabled={loginMutation.isPending && testingIndex === idx}
                       className="h-8 text-xs gap-1.5 border-border hover:border-accent hover:text-accent"
                     >
-                      <Send size={12} />
-                      Test Login
+                      <Send size={12} className={testingIndex === idx ? 'animate-spin' : ''} />
+                      {testingIndex === idx ? 'Testing...' : 'Test Login'}
                     </Button>
                   </div>
                 </div>
@@ -350,7 +448,7 @@ export function Step3HoneywordsLogin({ onPrev, onResetFlow }: Step3HoneywordsLog
                   alarmsData.map((alarm) => (
                     <TableRow key={alarm.id} className="border-border/60 font-mono text-xs">
                       <TableCell className="text-text-secondary py-2">
-                        {new Date(alarm.created_at).toLocaleTimeString()}
+                        {formatAlarmTimestamp(alarm.created_at)}
                       </TableCell>
                       <TableCell className="font-semibold text-danger py-2">
                         {alarm.kind}

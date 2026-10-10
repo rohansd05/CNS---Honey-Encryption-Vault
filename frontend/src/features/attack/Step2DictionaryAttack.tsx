@@ -30,16 +30,17 @@ interface Step2DictionaryAttackProps {
   onPrev: () => void;
 }
 
-const PRESET_GUESSES = [250, 500, 1000, 2000];
+const PRESET_GUESSES = [100, 300, 500, 1000];
 
 export function Step2DictionaryAttack({ onNext, onPrev }: Step2DictionaryAttackProps) {
   const shouldReduceMotion = useReducedMotion();
   const runAttackMutation = useRunDictionaryAttack();
 
   // Attack parameters
-  const [guessCount, setGuessCount] = useState<number>(1000);
+  const [guessCount, setGuessCount] = useState<number>(300);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [simCompleted, setSimCompleted] = useState<boolean>(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
 
   // Counters for the racing effect
   const [conventionalCounter, setConventionalCounter] = useState<number>(0);
@@ -51,15 +52,18 @@ export function Step2DictionaryAttack({ onNext, onPrev }: Step2DictionaryAttackP
   // Honey decoy sample viewer
   const [currentSampleIndex, setCurrentSampleIndex] = useState<number>(0);
 
-  // Animation frame / timer references
+  // Animation frame / timer / cancellation references
   const animFrameRef = useRef<number | null>(null);
   const cycleIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isCancelledRef = useRef<boolean>(false);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       if (cycleIntervalRef.current) clearInterval(cycleIntervalRef.current);
+      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
     };
   }, []);
 
@@ -77,15 +81,50 @@ export function Step2DictionaryAttack({ onNext, onPrev }: Step2DictionaryAttackP
     };
   }, [attackResult, shouldReduceMotion]);
 
+  const stopProgressTimer = () => {
+    if (progressTimerRef.current !== null) {
+      clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
+    }
+  };
+
+  const isAttackCancelled = (): boolean => isCancelledRef.current;
+
+  const handleCancelAttack = () => {
+    isCancelledRef.current = true;
+    if (animFrameRef.current !== null) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    stopProgressTimer();
+    setIsSimulating(false);
+    toast.info('Attack simulation cancelled. Result ignored.');
+  };
+
   const handleLaunchAttack = async () => {
+    isCancelledRef.current = false;
     setIsSimulating(true);
     setSimCompleted(false);
+    setElapsedSeconds(0);
     setConventionalCounter(0);
     setHoneyCounter(0);
     setCurrentSampleIndex(0);
 
+    const startTimeMs = Date.now();
+    stopProgressTimer();
+    progressTimerRef.current = setInterval(() => {
+      setElapsedSeconds(Math.round((Date.now() - startTimeMs) / 100) / 10);
+    }, 100);
+
     try {
       const data = await runAttackMutation.mutateAsync({ max_guesses: guessCount });
+
+      stopProgressTimer();
+
+      if (isAttackCancelled()) {
+        return;
+      }
+
       setAttackResult(data);
 
       if (shouldReduceMotion) {
@@ -105,6 +144,8 @@ export function Step2DictionaryAttack({ onNext, onPrev }: Step2DictionaryAttackP
       const startTime = performance.now();
 
       const updateFrame = (now: number) => {
+        if (isAttackCancelled()) return;
+
         const elapsed = now - startTime;
         const progress = Math.min(1, elapsed / durationMs);
 
@@ -139,15 +180,23 @@ export function Step2DictionaryAttack({ onNext, onPrev }: Step2DictionaryAttackP
 
       animFrameRef.current = requestAnimationFrame(updateFrame);
     } catch {
+      stopProgressTimer();
+      if (isAttackCancelled()) return;
       setIsSimulating(false);
       toast.error('Simulation request failed. Check server/mock connection.');
     }
   };
 
   const handleResetSimulation = () => {
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    isCancelledRef.current = true;
+    if (animFrameRef.current !== null) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    stopProgressTimer();
     setIsSimulating(false);
     setSimCompleted(false);
+    setElapsedSeconds(0);
     setConventionalCounter(0);
     setHoneyCounter(0);
     setAttackResult(null);
@@ -178,11 +227,22 @@ export function Step2DictionaryAttack({ onNext, onPrev }: Step2DictionaryAttackP
             <p className="text-sm text-text-secondary max-w-2xl leading-relaxed">
               Watch what happens when an attacker brute-forces both vaults with high-frequency password guesses.
               Conventional encryption reveals the true password at the first matching tag, while Honey Encryption
-              yields 1,000 distinct valid vaults with <strong>zero signal</strong>.
+              yields distinct plausible vaults with <strong>zero signal</strong>.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {isSimulating && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCancelAttack}
+                className="gap-1.5 border-danger/40 text-danger hover:bg-danger/10 hover:text-danger"
+              >
+                Cancel Attack
+              </Button>
+            )}
+
             {simCompleted && (
               <Button
                 variant="outline"
@@ -204,7 +264,7 @@ export function Step2DictionaryAttack({ onNext, onPrev }: Step2DictionaryAttackP
             >
               <Play size={15} className={isSimulating ? 'animate-spin' : 'fill-black'} />
               {isSimulating
-                ? 'Testing Guesses...'
+                ? `Testing Guesses (${elapsedSeconds.toFixed(1)}s)...`
                 : simCompleted
                   ? 'Re-run Simulation'
                   : 'Launch Attack Simulator'}
@@ -263,12 +323,18 @@ export function Step2DictionaryAttack({ onNext, onPrev }: Step2DictionaryAttackP
             />
             <div className="flex justify-between text-[11px] text-text-muted font-mono">
               <span>100</span>
+              <span className="text-accent font-semibold">300 (Default)</span>
               <span>500</span>
-              <span className="text-accent font-semibold">1,000 (Default)</span>
-              <span>1,500</span>
+              <span>1,000</span>
               <span>2,000</span>
             </div>
           </div>
+
+          <p className="text-[11px] text-text-muted leading-relaxed">
+            ⚠️ <strong>Performance Note:</strong> Deriving keys via Argon2id and decoding entries is CPU-intensive.
+            On free-tier and low-core servers, attacks with &gt;300 guesses can take several seconds.
+            300 guesses is recommended for responsive interactive runs.
+          </p>
         </div>
       </div>
 
@@ -302,7 +368,11 @@ export function Step2DictionaryAttack({ onNext, onPrev }: Step2DictionaryAttackP
 
               {simCompleted && attackResult?.baseline.cracked ? (
                 <Badge variant="destructive" className="animate-pulse font-mono font-bold text-xs py-1 px-2.5">
-                  CRACKED AT GUESS #{String(attackResult.baseline.guess_index ?? 137)}
+                  CRACKED AT GUESS #{String(attackResult.baseline.guess_index ?? 18)}
+                </Badge>
+              ) : simCompleted && !attackResult?.baseline.cracked ? (
+                <Badge variant="outline" className="font-mono text-xs text-text-muted">
+                  NOT CRACKED
                 </Badge>
               ) : isSimulating ? (
                 <Badge variant="secondary" className="font-mono text-xs">
@@ -348,7 +418,7 @@ export function Step2DictionaryAttack({ onNext, onPrev }: Step2DictionaryAttackP
                 </div>
                 <div className="text-[11px] text-text-muted font-mono">
                   {simCompleted
-                    ? `Time: ${String(attackResult?.baseline.elapsed_ms ?? 812)}ms`
+                    ? `Time: ${String(attackResult?.baseline.elapsed_ms ?? 0)}ms`
                     : isSimulating
                       ? 'Calculating...'
                       : '0ms'}
@@ -357,14 +427,27 @@ export function Step2DictionaryAttack({ onNext, onPrev }: Step2DictionaryAttackP
             </div>
 
             {/* Oracle explanation card */}
-            <div className="rounded-lg bg-danger/10 p-3.5 border border-danger/20 text-xs space-y-1.5">
-              <div className="font-bold text-danger flex items-center gap-1.5">
+            <div
+              className={`rounded-lg p-3.5 border text-xs space-y-1.5 ${
+                attackResult?.baseline.cracked
+                  ? 'bg-danger/10 border-danger/20'
+                  : 'bg-bg-elevated border-border'
+              }`}
+            >
+              <div
+                className={`font-bold flex items-center gap-1.5 ${
+                  attackResult?.baseline.cracked ? 'text-danger' : 'text-text-primary'
+                }`}
+              >
                 <AlertTriangle size={14} />
-                Decryption Oracle Confirmed Password
+                {attackResult?.baseline.cracked
+                  ? 'Decryption Oracle Confirmed Password'
+                  : 'Authentication Tag Protected Vault'}
               </div>
               <p className="text-text-secondary leading-normal">
-                At guess #{String(attackResult?.baseline.guess_index ?? 137)}, the AES-GCM Poly1305 authentication tag verified with 100% precision.
-                The cracking engine halted immediately.
+                {attackResult?.baseline.cracked
+                  ? `At guess #${String(attackResult.baseline.guess_index ?? 18)}, the AES-GCM Poly1305 authentication tag verified with 100% precision. The cracking engine halted immediately.`
+                  : `Across all ${guessCount.toLocaleString()} candidate guesses tested, zero guesses verified against the 128-bit authentication tag.`}
               </p>
             </div>
 
@@ -630,69 +713,110 @@ export function Step2DictionaryAttack({ onNext, onPrev }: Step2DictionaryAttackP
 
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="border-accent text-accent font-mono text-xs px-2.5 py-1">
-                  Real Guess Index: #{String(attackResult.reveal.real_guess_index ?? 137)}
+                  Real Guess Index: #{attackResult.reveal.real_guess_index !== null ? String(attackResult.reveal.real_guess_index) : 'Not in wordlist'}
                 </Badge>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-              <div className="rounded-lg bg-bg-elevated p-4 border border-border space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono font-bold text-accent">Guess #0: "123456"</span>
-                  <Badge variant="outline" className="text-[10px] text-text-muted">Decoy #1</Badge>
-                </div>
-                <div className="font-mono text-xs text-text-secondary space-y-1">
-                  <div>github.com: <span className="text-text-primary">dragon88</span></div>
-                  <div>proton.me: <span className="text-text-primary">summer2019!</span></div>
-                  <div>aws: <span className="text-text-primary">monkey1234</span></div>
-                </div>
-                <div className="text-[11px] text-text-muted pt-1">
-                  Grammar: L6D2, L6S1, L6D4
-                </div>
-              </div>
+            {(() => {
+              const realIndex = attackResult.reveal.real_guess_index;
+              const sampleA = attackResult.honey.samples[0];
+              const sampleB =
+                attackResult.honey.samples.length > 1
+                  ? attackResult.honey.samples[attackResult.honey.samples.length - 1]
+                  : attackResult.honey.samples[0];
+              const realEntries = attackResult.baseline.recovered_entries;
 
-              <div className="rounded-lg bg-accent/15 p-4 border-2 border-accent space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono font-bold text-accent">
-                    Guess #137: "correct horse..."
-                  </span>
-                  <Badge className="bg-accent text-black font-bold text-[10px]">Real Vault</Badge>
-                </div>
-                <div className="font-mono text-xs text-text-primary space-y-1">
-                  <div>github.com: <span className="text-accent font-semibold">ghp_K992jSkA...</span></div>
-                  <div>proton.me: <span className="text-accent font-semibold">Tr0ub4dor&3#Priv</span></div>
-                  <div>aws: <span className="text-accent font-semibold">AKIAIOSFODNN7...</span></div>
-                </div>
-                <div className="text-[11px] text-accent font-medium pt-1">
-                  Authentic credentials of @demo
-                </div>
-              </div>
+              return (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                    {/* Decoy 1 Card */}
+                    <div className="rounded-lg bg-bg-elevated p-4 border border-border space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-bold text-accent">
+                          Guess #{sampleA.guess_index}: "{sampleA.guess}"
+                        </span>
+                        <Badge variant="outline" className="text-[10px] text-text-muted">Decoy #1</Badge>
+                      </div>
+                      <div className="font-mono text-xs text-text-secondary space-y-1">
+                        {sampleA.entries.length > 0 ? (
+                          sampleA.entries.slice(0, 3).map((e) => (
+                            <div key={e.id} className="truncate">
+                              {e.service}: <span className="text-text-primary font-medium">{e.password}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div>Decoy entries generated via PCFG</div>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-text-muted pt-1">
+                        Plausible PCFG Decoy Vault
+                      </div>
+                    </div>
 
-              <div className="rounded-lg bg-bg-elevated p-4 border border-border space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono font-bold text-accent">Guess #24: "dragon"</span>
-                  <Badge variant="outline" className="text-[10px] text-text-muted">Decoy #25</Badge>
-                </div>
-                <div className="font-mono text-xs text-text-secondary space-y-1">
-                  <div>github.com: <span className="text-text-primary">matrix2022</span></div>
-                  <div>proton.me: <span className="text-text-primary">phantom#4</span></div>
-                  <div>aws: <span className="text-text-primary">silverado9</span></div>
-                </div>
-                <div className="text-[11px] text-text-muted pt-1">
-                  Grammar: L6D4, L7S1D1
-                </div>
-              </div>
-            </div>
+                    {/* Real Vault Card */}
+                    <div className="rounded-lg bg-accent/15 p-4 border-2 border-accent space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-bold text-accent">
+                          Guess #{realIndex !== null ? realIndex : 'N/A'}: {realIndex !== null ? 'Target Cracked' : 'Not Found'}
+                        </span>
+                        <Badge className="bg-accent text-black font-bold text-[10px]">Real Vault</Badge>
+                      </div>
+                      <div className="font-mono text-xs text-text-primary space-y-1">
+                        {realEntries.length > 0 ? (
+                          realEntries.slice(0, 3).map((e) => (
+                            <div key={e.id} className="truncate">
+                              {e.service}: <span className="text-accent font-semibold">{e.password}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-text-muted text-xs">Target password not tested in range</div>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-accent font-medium pt-1">
+                        Authentic credentials of @demo
+                      </div>
+                    </div>
 
-            <div className="rounded-lg bg-bg-elevated/70 p-3.5 border border-border flex items-start gap-2.5 text-xs text-text-secondary leading-relaxed">
-              <CheckCircle2 size={16} className="text-accent mt-0.5 shrink-0" />
-              <span>
-                <strong>Conclusion for Attacker:</strong> Because the DTE samples decoy passwords from the exact same
-                statistical PCFG distribution as genuine human choices, Guess #137 looked <em>no different</em> than
-                Guess #0 or Guess #24. To find out which vault is real, the attacker must attempt to use these credentials online,
-                triggering active tripwires.
-              </span>
-            </div>
+                    {/* Decoy 2 Card */}
+                    <div className="rounded-lg bg-bg-elevated p-4 border border-border space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-bold text-accent">
+                          Guess #{sampleB.guess_index}: "{sampleB.guess}"
+                        </span>
+                        <Badge variant="outline" className="text-[10px] text-text-muted">
+                          Decoy #{attackResult.honey.samples.length > 1 ? 2 : 1}
+                        </Badge>
+                      </div>
+                      <div className="font-mono text-xs text-text-secondary space-y-1">
+                        {sampleB.entries.length > 0 ? (
+                          sampleB.entries.slice(0, 3).map((e) => (
+                            <div key={e.id} className="truncate">
+                              {e.service}: <span className="text-text-primary font-medium">{e.password}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div>Decoy entries generated via PCFG</div>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-text-muted pt-1">
+                        Plausible PCFG Decoy Vault
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-bg-elevated/70 p-3.5 border border-border flex items-start gap-2.5 text-xs text-text-secondary leading-relaxed">
+                    <CheckCircle2 size={16} className="text-accent mt-0.5 shrink-0" />
+                    <span>
+                      <strong>Conclusion for Attacker:</strong> Because the DTE samples decoy passwords from the exact same
+                      statistical PCFG distribution as genuine human choices, Guess #{realIndex !== null ? realIndex : 18} looked <em>no different</em> than
+                      Guess #{sampleA.guess_index} or Guess #{sampleB.guess_index}. To find out which vault is real, the attacker must attempt to use these credentials online,
+                      triggering active tripwires.
+                    </span>
+                  </div>
+                </>
+              );
+            })()}
           </motion.div>
         )}
       </AnimatePresence>

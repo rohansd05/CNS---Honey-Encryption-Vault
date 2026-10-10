@@ -114,6 +114,26 @@ export function EvaluationPage() {
             )}
           </div>
         )}
+
+        {/* Fallback alert banner */}
+        {useDemoFallback && !data && (
+          <div className="rounded-lg bg-accent/10 border border-accent/30 p-3 text-xs text-text-secondary flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span>
+              ℹ️ <strong>Demonstration Snapshot:</strong> The live API returned 404 (evaluation results have not been generated via <code className="font-mono text-accent">python -m eval.run_all</code> yet). Displaying Phase 3 verified cryptographic benchmarks.
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setUseDemoFallback(false);
+                void refetch();
+              }}
+              className="h-6 text-xs text-accent hover:text-accent-hover shrink-0 self-start sm:self-auto"
+            >
+              Re-check Live API
+            </Button>
+          </div>
+        )}
       </motion.div>
 
       {/* Main Content Areas */}
