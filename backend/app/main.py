@@ -22,6 +22,7 @@ from app.errors import (
     validation_error_handler,
 )
 from app.rate_limit import limiter, rate_limit_handler
+from app.security_headers import add_security_headers
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,9 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_middleware(SlowAPIMiddleware)
     app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+
+    # ---- Security headers ----
+    add_security_headers(app, settings)
 
     # ---- CORS ----
     app.add_middleware(
