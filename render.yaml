@@ -62,6 +62,12 @@ services:
         sync: false
       - key: DEMO_MASTER_PASSWORD
         sync: false
+      - key: BOB_USERNAME
+        sync: false
+      - key: BOB_LOGIN_PASSWORD
+        sync: false
+      - key: BOB_MASTER_PASSWORD
+        sync: false
       - key: PCFG_PASSWORD_MODEL_PATH
         sync: false
       - key: PCFG_USERNAME_MODEL_PATH

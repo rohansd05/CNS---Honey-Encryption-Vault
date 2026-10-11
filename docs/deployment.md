@@ -186,32 +186,84 @@ Verify that all essential checks PASS and unreleased endpoints show SKIP.
 
 ## 6. Environment Variable Matrix
 
-| Variable | Service | Default / Staging | Secret? | Description |
-|---|---|---|---|---|
-| `APP_ENV` | API, HC | `staging` | No | Environment mode (`development`, `staging`, `production`) |
-| `LOG_LEVEL` | API, HC | `INFO` | No | Logging verbosity |
-| `DEMO_MODE` | API | `true` | No | Enables attacker console and seeded demo user |
-| `DATABASE_URL` | API | `postgresql+psycopg://...` | **Yes** | Connection string for HoneyVault Postgres DB |
-| `ALLOWED_ORIGINS` | API | `https://honeyvault.vercel.app,http://localhost:5173` | No | Comma-separated CORS allowed origins |
-| `JWT_SECRET` | API | *Random 48-byte URL-safe string* | **Yes** | HMAC key for signing user session tokens |
-| `JWT_ALGORITHM` | API | `HS256` | No | Algorithm for JWT tokens |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | API | `60` | No | Token lifetime in minutes |
-| `HONEYCORE_IMPL` | API | `real` (or `stub`) | No | Implementation selector for cryptographic core |
-| `VAULT_KDF_PROFILE` | API | `default` (or `demo`) | No | KDF cost profile (`default`, `server_lite`, `demo`) |
-| `HONEYWORDS_K` | API | `10` | No | Number of candidate passwords generated per user |
-| `HONEYWORDS_KDF_PROFILE` | API | `server_lite` | No | Argon2 cost profile for honeyword hashes |
-| `KEY_WRAP_SECRET` | API | *Base64 32 random bytes* | **Yes** | Server KEK wrapping ECC user identity private keys |
-| `HONEYCHECKER_URL` | API | `https://honeyvault-hc.onrender.com` | No | URL to Honeychecker service |
-| `HONEYCHECKER_TRANSPORT` | API | `signed` (Render) / `plain` (Local) | No | Transport mechanism (`plain`, `mtls`, `signed`) |
-| `HONEYCHECKER_TIMEOUT_SECONDS`| API | `60` | No | Increased timeout to absorb free-tier cold starts |
-| `HC_CLIENT_CERT_B64` | API | *Base64 PEM* | **Yes** | API client certificate for signed transport |
-| `HC_CLIENT_KEY_B64` | API | *Base64 PEM* | **Yes** | API client private key for signed transport |
-| `HC_DATABASE_URL` | Honeychecker | `postgresql+psycopg://...` | **Yes** | Dedicated Honeychecker database connection string |
-| `HC_TRANSPORT` | Honeychecker | `signed` (Render) / `plain` (Local) | No | Must match `HONEYCHECKER_TRANSPORT` |
-| `HC_ALLOWED_CLIENT_CN` | Honeychecker | `honeyvault-api` | No | Expected CN of API client certificate |
-| `HC_TRUSTED_CA_CERT_B64` | Honeychecker | *Base64 PEM* | **Yes** | Trusted Root CA certificate for chain validation |
-| `VITE_API_BASE_URL` | Frontend | `https://honeyvault-api.onrender.com` | No | Backend API endpoint URL |
-| `VITE_USE_MOCKS` | Frontend | `false` | No | Toggle MSW mock API vs real backend |
+> [!IMPORTANT]
+> Env var **names** are a frozen contract defined in `.env.example`. Adding or renaming one requires a `contract-change` PR approved by the T1 lead.
+> `sync: false` vars in `render.yaml` appear in the Render Dashboard only at Blueprint creation time. Variables added later must be set manually in the service's **Environment** tab.
+
+### 6.1 Common (both services read these)
+
+| Variable | Staging Value | Secret? | Description |
+|---|---|---|---|
+| `APP_ENV` | `staging` | No | Runtime mode: `development` \| `staging` \| `production` |
+| `LOG_LEVEL` | `INFO` | No | Logging verbosity |
+
+### 6.2 HoneyVault API (`backend/app/config.py`)
+
+| Variable | Staging Value / Default | Secret? | Description |
+|---|---|---|---|
+| `DEMO_MODE` | `true` | No | Enables `/api/attack/*` demo endpoints and seeded demo account |
+| `API_PORT` | `8000` | No | Uvicorn listen port (Render overrides via `PORT`) |
+| `DATABASE_URL` | *(Neon `honeyvault` connection string)* | **Yes** | `postgresql+psycopg://honeyvault:<pw>@<host>/honeyvault?sslmode=require` |
+| `ALLOWED_ORIGINS` | *(Vercel domain + localhost)* | No | Comma-separated CORS allowed origins |
+| `JWT_SECRET` | *(random 48-byte URL-safe string)* | **Yes** | HMAC signing key for user session JWTs |
+| `JWT_ALGORITHM` | `HS256` | No | JWT signing algorithm |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | No | JWT lifetime in minutes |
+| `HONEYCORE_IMPL` | `real` | No | Crypto core selector: `stub` (Phase 0-1) \| `real` (Phase 2+) |
+| `VAULT_KDF_PROFILE` | `server_lite` | No | KDF cost profile for vault encryption: `default` \| `server_lite` \| `demo` |
+| `HONEYWORDS_K` | `10` | No | Number of candidate sweetwords generated per user |
+| `HONEYWORDS_KDF_PROFILE` | `server_lite` | No | Argon2 cost profile for honeyword hashes |
+| `RATE_LIMIT_LOGIN` | `20/minute` | No | Login rate limit — raised to 20 because Render's proxy collapses all client IPs to one |
+| `RATE_LIMIT_UNLOCK` | `30/minute` | No | Vault-unlock rate limit (same proxy-IP reason) |
+| `ADMIN_USERNAME` | `admin` | No | Built-in admin account username |
+| `ADMIN_LOGIN_PASSWORD` | *(set in Render)* | **Yes** | Admin login password |
+| `DEMO_USERNAME` | `demo` | No | Seeded demo account username |
+| `DEMO_LOGIN_PASSWORD` | *(set in Render)* | **Yes** | Demo account login password |
+| `DEMO_MASTER_PASSWORD` | *(set in Render)* | **Yes** | Demo account master password |
+| `BOB_USERNAME` | `bob` | No | Attacker-console demo target username |
+| `BOB_LOGIN_PASSWORD` | *(set in Render)* | **Yes** | Bob's login password — **required** in any non-`development` `APP_ENV` |
+| `BOB_MASTER_PASSWORD` | *(set in Render)* | **Yes** | Bob's master password — **required** in any non-`development` `APP_ENV` |
+| `PCFG_PASSWORD_MODEL_PATH` | `honeycore/models/pcfg_password_v1.json.gz` | No | Path to PCFG password model (relative to `backend/`) |
+| `PCFG_USERNAME_MODEL_PATH` | `honeycore/models/pcfg_username_v1.json.gz` | No | Path to PCFG username model (relative to `backend/`) |
+| `EVAL_RESULTS_PATH` | `eval/results/latest.json` | No | Path to evaluation results JSON |
+| `KEY_WRAP_SECRET` | *(Base64 of 32 random bytes)* | **Yes** | Server KEK that wraps users' ECC identity private keys |
+| `ROOT_CA_CERT_B64` | *(Base64 PEM)* | No | Root CA certificate (PEM, Base64-encoded) |
+| `ISSUING_CA_CERT_B64` | *(Base64 PEM)* | No | Issuing CA certificate (PEM, Base64-encoded) |
+| `ISSUING_CA_KEY_B64` | *(Base64 PEM)* | **Yes** | Issuing CA private key (PEM, Base64-encoded) |
+| `HONEYCHECKER_URL` | *(Render internal URL of `honeyvault-honeychecker`)* | No | Base URL of Honeychecker service |
+| `HONEYCHECKER_TRANSPORT` | `signed` | No | Transport: `plain` (local) \| `mtls` (docker-compose.mtls.yml) \| `signed` (Render) |
+| `HONEYCHECKER_TIMEOUT_SECONDS` | `60` | No | HTTP timeout for HC calls — raised to absorb free-tier cold starts |
+| `HC_CLIENT_CERT_PATH` | `../pki/out/api-client.crt` | No | mTLS: API client cert file (relative to `backend/`) |
+| `HC_CLIENT_KEY_PATH` | `../pki/out/api-client.key` | No | mTLS: API client private key file |
+| `HC_CA_CERT_PATH` | `../pki/out/root-ca.crt` | No | mTLS: CA cert file used to verify the HC server |
+| `HC_CLIENT_CERT_B64` | *(Base64 PEM)* | No | signed mode: API client certificate (Base64 PEM) |
+| `HC_CLIENT_KEY_B64` | *(Base64 PEM)* | **Yes** | signed mode: API client private key (Base64 PEM) |
+
+### 6.3 Honeychecker (`honeychecker/app/config.py`)
+
+| Variable | Staging Value / Default | Secret? | Description |
+|---|---|---|---|
+| `HC_PORT` | `8001` | No | Uvicorn listen port (Render overrides via `PORT`) |
+| `HC_DATABASE_URL` | *(Neon `honeychecker` connection string)* | **Yes** | **Separate Neon role and database from `honeyvault`** — `postgresql+psycopg://honeychecker:<pw>@<host>/honeychecker?sslmode=require` |
+| `HC_TRANSPORT` | `signed` | No | Must match `HONEYCHECKER_TRANSPORT` on the API side |
+| `HC_ALLOWED_CLIENT_CN` | `honeyvault-api` | No | Expected CN in the API client certificate |
+| `HC_SERVER_CERT_PATH` | `../pki/out/honeychecker-server.crt` | No | mTLS: HC server TLS certificate file path |
+| `HC_SERVER_KEY_PATH` | `../pki/out/honeychecker-server.key` | No | mTLS: HC server TLS private key file path |
+| `HC_TRUSTED_CA_CERT_PATH` | `../pki/out/service-ca.crt` | No | Trust anchor for verifying API client certs (**Service CA**, not Root CA) |
+| `HC_TRUSTED_CA_CERT_B64` | *(Base64 PEM)* | **Yes** | signed mode: Service CA certificate (Base64 PEM) |
+| `HC_ISSUING_CA_CERT_B64` | *(Base64 PEM)* | No | Kept for sharing layer; not used by HC's `verify_caller` |
+| `HC_SERVICE_CA_CERT_PATH` | `../pki/out/service-ca.crt` | No | Convenience alias for `HC_TRUSTED_CA_CERT_PATH` (deployment scripts) |
+| `HC_SERVICE_CA_CERT_B64` | *(Base64 PEM)* | **Yes** | Convenience alias for `HC_TRUSTED_CA_CERT_B64` (deployment scripts) |
+
+### 6.4 Frontend (Vite — only `VITE_*` vars are bundled into the SPA)
+
+| Variable | Staging Value | Secret? | Description |
+|---|---|---|---|
+| `VITE_API_BASE_URL` | *(Public Render URL of `honeyvault-api`)* | No | Backend API endpoint injected at build time |
+| `VITE_USE_MOCKS` | `false` | No | `true` enables MSW mock API instead of real backend |
+| `VITE_DEMO_MODE` | `true` | No | Shows demo/attacker UI panels |
+| `VITE_APP_NAME` | `HoneyVault` | No | Application display name |
+
+
 
 ---
 
