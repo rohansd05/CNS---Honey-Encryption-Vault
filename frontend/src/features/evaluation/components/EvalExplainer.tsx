@@ -1,3 +1,4 @@
+// owner: Chetan (T3) — evaluation methodology and documentation (feat/t3-eval-real-data)
 import { useState } from 'react';
 import {
   HelpCircle,
@@ -124,17 +125,17 @@ export function EvalExplainer() {
                 <span>1. Ideal Distinguisher = 50%</span>
               </div>
               <p className="text-text-secondary leading-normal">
-                In standard cryptography, high accuracy is desired. In Honey Encryption, the opposite is true: an attacker’s classifier achieving <strong>50% accuracy</strong> (random coin flip) proves that synthetic decoy vaults are indistinguishable from real vaults.
+                In standard cryptography, high accuracy is desired. In Honey Encryption, an adversary classifier achieving <strong>50% accuracy</strong> (random coin flip) indicates synthetic decoy vaults are indistinguishable from real vaults.
               </p>
             </div>
 
             <div className="p-4 rounded-xl bg-bg-surface/80 border border-border space-y-2">
-              <div className="flex items-center gap-2 text-success font-semibold">
+              <div className="flex items-center gap-2 text-info font-semibold">
                 <Binary size={16} />
-                <span>2. Chi-Squared p &gt; 0.05 is PASS</span>
+                <span>2. Chi-Squared & Codec Control</span>
               </div>
               <p className="text-text-secondary leading-normal">
-                Pearson’s goodness-of-fit test tests the null hypothesis that encoded seeds are uniformly distributed bits. A <strong>p-value &gt; 0.05</strong> fails to reject the null hypothesis, mathematically proving that no statistical leakage exists.
+                Pearson χ² tests evaluate seed uniformity and template goodness-of-fit. When held-out passwords fail uniformity due to real-world frequency divergence, the <strong>codec control</strong> tests model samples to prove the encoder is unbiased.
               </p>
             </div>
 
@@ -165,7 +166,7 @@ export function EvalExplainer() {
         <AccordionItem
           id="methodology_1"
           title="1. Dataset & PCFG Grammar Training"
-          badge="80/20 Train/Test Split"
+          badge="Corpus & Model"
           icon={<Binary size={16} />}
           isOpen={openItems.methodology_1}
           onToggle={() => {
@@ -173,17 +174,17 @@ export function EvalExplainer() {
           }}
         >
           <p>
-            The Distribution-Transforming Encoder (DTE) is trained on <strong>1,000,000 real passwords</strong> from the RockYou corpus with Zipf-rank weighting (w = 1 / rank^0.9), combined with SecLists xato username data.
+            The Distribution-Transforming Encoder (DTE) is trained on real passwords from the SecLists RockYou corpus with Zipf-rank weighting (w = 1 / rank^0.9), combined with username models.
           </p>
           <ul className="list-disc pl-5 space-y-1 text-text-secondary">
             <li>
               <strong>Grammar segmentation:</strong> Passwords are decomposed into maximal runs of Letters (<code className="text-accent font-mono">L</code>), Digits (<code className="text-accent font-mono">D</code>), and Symbols (<code className="text-accent font-mono">S</code>) (e.g. <code className="text-accent font-mono">L6D2</code> for <code className="font-mono">dragon88</code>).
             </li>
             <li>
-              <strong>Pseudo-terminal fallback:</strong> Buckets include a pseudo-terminal <code className="font-mono text-text-primary">__CHARS__</code> unigram fallback (weight = max(1, 0.5% bucket weight)) to ensure 100% total coverage over all 95 printable ASCII characters.
+              <strong>Pseudo-terminal fallback:</strong> Buckets include a pseudo-terminal <code className="font-mono text-text-primary">__CHARS__</code> unigram fallback to ensure 100% total coverage over all 95 printable ASCII characters.
             </li>
             <li>
-              <strong>Fixed seed layout:</strong> 66 integers for password seed + 67 integers for username seed = <strong>532 bytes</strong> fixed length per entry (<code className="font-mono text-accent">ENTRY_SEED_LEN</code>).
+              <strong>Fixed seed layout:</strong> 264 bytes for password seed + 268 bytes for username seed = <strong>532 bytes</strong> fixed length per entry (<code className="font-mono text-accent">ENTRY_SEED_LEN</code>).
             </li>
           </ul>
         </AccordionItem>
@@ -204,10 +205,10 @@ export function EvalExplainer() {
           </p>
           <ul className="list-disc pl-5 space-y-1 text-text-secondary">
             <li>
-              <strong>Round-Trip Invertibility:</strong> For every valid printable ASCII credential pair $(u, p)$, <code className="font-mono text-text-primary">decode(encode(u, p)) == (u, p)</code>. Evaluated across 50,000 random trials with <strong>100.0% exact match</strong>.
+              <strong>Round-Trip Invertibility:</strong> For every valid printable ASCII credential pair $(u, p)$, <code className="font-mono text-text-primary">decode(encode(u, p)) == (u, p)</code>, verified with 100% exact match across all trials.
             </li>
             <li>
-              <strong>Decode Totality:</strong> Every 532-byte sequence decodes to printable ASCII strings without exceptions. Evaluated across 100,000 uniform random byte seeds with <strong>0 decode errors</strong>.
+              <strong>Decode Totality:</strong> Every 532-byte uniform sequence decodes to printable ASCII strings without exceptions, ensuring wrong master passwords never trigger decryption errors or timing anomalies.
             </li>
           </ul>
         </AccordionItem>
@@ -228,13 +229,13 @@ export function EvalExplainer() {
           </p>
           <ul className="list-disc pl-5 space-y-1 text-text-secondary">
             <li>
-              <strong>Classifiers:</strong> Logistic Regression (L2 penalty) and Random Forest (100 estimators) trained with 5-fold cross-validation.
+              <strong>Classifiers:</strong> Logistic Regression (standardized) and Random Forest (200 estimators) trained with 5-fold stratified cross-validation.
             </li>
             <li>
-              <strong>Feature vector:</strong> Password length, character class frequencies (letters, digits, symbols), template log-probability under the grammar model, and Shannon entropy.
+              <strong>Feature vector:</strong> 12 features including password length, character class segment counts, template log-probability under the grammar model, unigram character log-probability, and Shannon entropy.
             </li>
             <li>
-              <strong>Result:</strong> Overall classifier accuracy is <strong>54.8%</strong> (target threshold ≤ 60%), demonstrating near-chance confusion and confirming the adversary cannot prune the keyspace effectively.
+              <strong>Result analysis:</strong> Logistic regression demonstrates near-chance distinguishability (~0.50). Random Forest exceeds the ≤ 0.60 target due to duplicate strings across CV folds and heavy-tail frequency skew; on distinct strings, it falls to ~0.51. See <code className="font-mono text-accent">docs/eval-report.md §4.3</code> for detailed breakdown and protocol improvements.
             </li>
           </ul>
         </AccordionItem>
@@ -258,13 +259,13 @@ export function EvalExplainer() {
               <strong>Vault KDF profile (<code className="font-mono text-text-primary">default</code>):</strong> <code className="font-mono text-accent">time_cost=3, memory_cost=64 MiB, parallelism=4</code>.
             </li>
             <li>
-              <strong>Honeywords profile (<code className="font-mono text-text-primary">server_lite</code>):</strong> <code className="font-mono text-accent">time_cost=1, memory_cost=16 MiB, parallelism=2</code> (optimized for high-throughput login verification).
+              <strong>Honeywords profile (<code className="font-mono text-text-primary">server_lite</code>):</strong> <code className="font-mono text-accent">time_cost=2, memory_cost=19 MiB, parallelism=1</code> (optimized for high-throughput login verification).
             </li>
             <li>
-              <strong>Attack demo profile (<code className="font-mono text-text-primary">demo</code>):</strong> <code className="font-mono text-accent">time_cost=3, memory_cost=64 MiB, parallelism=4</code>.
+              <strong>Attack demo profile (<code className="font-mono text-text-primary">demo</code>):</strong> <code className="font-mono text-accent">time_cost=1, memory_cost=8 MiB, parallelism=1</code>.
             </li>
             <li>
-              <strong>SLA Verification:</strong> Deployed API achieves p95 unlock latency of <strong>780 ms</strong>, comfortably meeting the &lt; 1500 ms target constraint.
+              <strong>SLA Verification:</strong> In-process 8-entry vault unlock achieves latency far below the 1.5 s target constraint.
             </li>
           </ul>
         </AccordionItem>

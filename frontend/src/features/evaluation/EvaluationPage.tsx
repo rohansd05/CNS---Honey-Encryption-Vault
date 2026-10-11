@@ -1,3 +1,4 @@
+// owner: Chetan (T3) — evaluation page (feat/t3-eval-real-data)
 import { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
@@ -7,6 +8,7 @@ import {
   Database,
   Layers,
   Calendar,
+  GitCommit,
 } from 'lucide-react';
 import { useEvalSummary } from '@/api/hooks/useEvalQueries';
 import { MOCK_EVAL_SUMMARY } from '@/mocks/handlers/eval';
@@ -24,12 +26,12 @@ export function EvaluationPage() {
   const { data, isLoading, refetch, isFetching } = useEvalSummary();
   const [useDemoFallback, setUseDemoFallback] = useState<boolean>(false);
 
-  // Cast query response or fallback to mock
+  // Cast query response or fallback to mock fixture
   const evalData: EvalSummaryData | null =
     (data as unknown as EvalSummaryData | undefined) ??
     (useDemoFallback ? (MOCK_EVAL_SUMMARY as unknown as EvalSummaryData) : null);
 
-  const formattedTimestamp = evalData
+  const formattedTimestamp = evalData?.timestamp
     ? new Date(evalData.timestamp).toLocaleDateString(undefined, {
         year: 'numeric',
         month: 'short',
@@ -90,21 +92,47 @@ export function EvaluationPage() {
         {/* Metadata badges strip */}
         {evalData && (
           <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-text-secondary">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-bg-surface border border-border">
-              <Database size={13} className="text-accent" />
-              <span>Corpus:</span>
-              <span className="font-mono text-text-primary font-medium">RockYou2021 + SecLists</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-bg-surface border border-border">
-              <Layers size={13} className="text-info" />
-              <span>Split:</span>
-              <span className="font-mono text-text-primary font-medium">800k Train / 200k Test</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-bg-surface border border-border">
-              <Sparkles size={13} className="text-success" />
-              <span>Fixed Seed:</span>
-              <span className="font-mono text-text-primary font-medium">532 Bytes</span>
-            </div>
+            {evalData.dataset?.corpus && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-bg-surface border border-border">
+                <Database size={13} className="text-accent" />
+                <span>Corpus:</span>
+                <span className="font-mono text-text-primary font-medium">
+                  {evalData.dataset.corpus}
+                </span>
+              </div>
+            )}
+            {evalData.dataset && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-bg-surface border border-border">
+                <Layers size={13} className="text-info" />
+                <span>Samples:</span>
+                <span className="font-mono text-text-primary font-medium">
+                  {evalData.dataset.training_samples != null
+                    ? `${evalData.dataset.training_samples.toLocaleString()} Train / `
+                    : ''}
+                  {evalData.dataset.test_samples != null
+                    ? `${evalData.dataset.test_samples.toLocaleString()} Test`
+                    : 'Held-out set'}
+                </span>
+              </div>
+            )}
+            {evalData.dataset?.models?.entry_seed_len != null && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-bg-surface border border-border">
+                <Sparkles size={13} className="text-success" />
+                <span>Fixed Seed:</span>
+                <span className="font-mono text-text-primary font-medium">
+                  {evalData.dataset.models.entry_seed_len} Bytes
+                </span>
+              </div>
+            )}
+            {evalData.meta?.git_commit && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-bg-surface border border-border">
+                <GitCommit size={13} className="text-text-muted" />
+                <span>Commit:</span>
+                <span className="font-mono text-text-primary font-medium">
+                  {evalData.meta.git_commit}
+                </span>
+              </div>
+            )}
             {formattedTimestamp && (
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-bg-surface border border-border">
                 <Calendar size={13} className="text-text-muted" />
@@ -119,7 +147,7 @@ export function EvaluationPage() {
         {useDemoFallback && !data && (
           <div className="rounded-lg bg-accent/10 border border-accent/30 p-3 text-xs text-text-secondary flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <span>
-              ℹ️ <strong>Demonstration Snapshot:</strong> The live API returned 404 (evaluation results have not been generated via <code className="font-mono text-accent">python -m eval.run_all</code> yet). Displaying Phase 3 verified cryptographic benchmarks.
+              ℹ️ <strong>Demonstration Snapshot:</strong> The live API returned 404 (evaluation results have not been generated via <code className="font-mono text-accent">python -m eval.run_all</code> yet). Displaying verified benchmark snapshot from <code className="font-mono text-accent">backend/eval/results/latest.json</code>.
             </span>
             <Button
               variant="ghost"
