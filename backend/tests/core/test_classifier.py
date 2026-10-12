@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from eval.classifier import FEATURE_NAMES, features, run
+from eval.classifier import CV_FOLDS, FEATURE_NAMES, features, folds, run
 from honeycore.dte.password_dte import PCFGPasswordModel
 from honeycore.dte.pcfg import train_password_model
 
@@ -102,6 +103,36 @@ def test_run_output_keys_and_accuracy_in_range(tmp_path) -> None:
         assert scores["accuracy_std"] >= 0.0
 
 
+def test_run_grouped_and_distinct_protocols(tmp_path) -> None:
+    model = _tiny_model()
+    report = run(model, _write_heldout(tmp_path, _TRAIN_WORDS), n=200, seed=7)
+    grouped, distinct = report["grouped"], report["distinct"]
+    assert grouped["n"] == 200 and 1 <= grouped["distinct_strings"] <= 400
+    assert distinct["n"] == min(distinct["distinct_real"], distinct["distinct_decoy"])
+    assert distinct["distinct_real"] <= len(_TRAIN_WORDS)
+    for block in (grouped, distinct):
+        for key in ("logreg", "random_forest"):
+            assert 0.0 <= block[key]["accuracy_mean"] <= 1.0
+            assert 0.0 <= block[key]["roc_auc_mean"] <= 1.0
+
+
+def test_grouped_folds_never_share_a_string() -> None:
+    # Heavy repeats, and some strings carry both labels (a real that the model also decoys).
+    values = [f"pw{i % 37}" for i in range(500)] + [f"pw{i % 23}x" for i in range(300)]
+    values += ["pw1"] * 40
+    y = np.array([1] * 500 + [0] * 340)
+    splits = folds(values, y, seed=7, grouped=True)
+    assert len(splits) == CV_FOLDS
+    tested = np.concatenate([test for _, test in splits])
+    assert sorted(tested) == list(range(len(values)))  # every row tested exactly once
+    for train, test in splits:
+        assert not {values[i] for i in train} & {values[i] for i in test}
+        assert set(y[test]) == {0, 1}  # still stratified: both classes in every test fold
+    # The plain protocol does leak strings across folds -- the reason grouped CV exists.
+    plain = folds(values, y, seed=7)
+    assert any({values[i] for i in tr} & {values[i] for i in te} for tr, te in plain)
+
+
 def test_run_detects_distinguishable_decoys(tmp_path) -> None:
     # Real held-out passwords are short/varied; every decoy is 32 chars -> trivially separable.
     heldout = _write_heldout(tmp_path, _TRAIN_WORDS)
@@ -109,6 +140,9 @@ def test_run_detects_distinguishable_decoys(tmp_path) -> None:
     assert report["logreg"]["accuracy_mean"] > 0.9
     assert report["random_forest"]["accuracy_mean"] > 0.9
     assert report["logreg"]["roc_auc_mean"] > 0.9
+    # One decoy string cannot fill 5 grouped folds: both extra protocols are skipped, not NaN.
+    assert "skipped" in report["grouped"] and "skipped" in report["distinct"]
+    assert report["distinct"]["distinct_decoy"] == 1
 
 
 _MODEL = _tiny_model()

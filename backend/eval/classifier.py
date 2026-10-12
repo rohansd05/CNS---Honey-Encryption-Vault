@@ -14,6 +14,11 @@ sets of equal size are scored with 5-fold stratified cross-validation of a stand
 regression and a random forest. The same machinery runs at the username level when a held-out
 username set and model are available. ``python -m eval.classifier`` prints the report as JSON.
 
+Reals are sampled by weight *with replacement*, so popular strings repeat and the same string can
+sit in a training and a test fold, letting a classifier memorise it. Two extra protocols separate
+that from real signal: ``grouped`` (``StratifiedGroupKFold`` grouped by string, so every copy of a
+string is in one fold) and ``distinct`` (each class reduced to its distinct strings).
+
 This is evaluation code (not ``honeycore`` / ``app``), so it may use ``numpy`` randomness with a
 fixed seed for reproducibility; it never touches master passwords or keys.
 """
@@ -31,7 +36,7 @@ from typing import Any
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import StratifiedKFold, cross_validate
+from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold, cross_validate
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -193,15 +198,46 @@ def _classifiers(seed: int) -> list[tuple[str, Any]]:
     return [("logreg", logreg), ("random_forest", forest)]
 
 
-def _score(clf: Any, x: np.ndarray, y: np.ndarray, seed: int) -> dict[str, float]:
-    """5-fold stratified CV accuracy (mean/std) and ROC-AUC (mean) for one classifier."""
-    skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=seed)
-    cv = cross_validate(clf, x, y, cv=skf, scoring=("accuracy", "roc_auc"))
-    return {
-        "accuracy_mean": float(cv["test_accuracy"].mean()),
-        "accuracy_std": float(cv["test_accuracy"].std()),
-        "roc_auc_mean": float(cv["test_roc_auc"].mean()),
-    }
+def folds(values: list[str], y: np.ndarray, seed: int, *, grouped: bool = False) -> list[Any]:
+    """``CV_FOLDS`` stratified ``(train, test)`` index splits over ``values`` / labels ``y``.
+
+    ``grouped=True`` uses ``StratifiedGroupKFold`` with one group per distinct string, so every
+    copy of a string (real or decoy) lands in the same fold and never in both train and test.
+    """
+    if not grouped:
+        return list(StratifiedKFold(CV_FOLDS, shuffle=True, random_state=seed).split(values, y))
+    _, groups = np.unique(values, return_inverse=True)
+    sgkf = StratifiedGroupKFold(CV_FOLDS, shuffle=True, random_state=seed)
+    return list(sgkf.split(values, y, groups))
+
+
+def _scores(x: np.ndarray, y: np.ndarray, splits: list[Any], seed: int) -> dict[str, Any]:
+    """CV accuracy (mean/std) and ROC-AUC (mean) of each classifier over the given ``splits``."""
+    out: dict[str, Any] = {}
+    for name, clf in _classifiers(seed):
+        cv = cross_validate(clf, x, y, cv=splits, scoring=("accuracy", "roc_auc"))
+        out[name] = {
+            "accuracy_mean": float(cv["test_accuracy"].mean()),
+            "accuracy_std": float(cv["test_accuracy"].std()),
+            "roc_auc_mean": float(cv["test_roc_auc"].mean()),
+        }
+    return out
+
+
+def _matrix(values: list[str], model: Any) -> np.ndarray:
+    """Feature matrix of ``values`` (non-finite entries zeroed)."""
+    x = np.array([features(v, model) for v in values], dtype=float)
+    return np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
+
+
+def _distinct_scores(real_set: list[str], decoy_set: list[str], model: Any, seed: int) -> dict:
+    """Distinct-strings-only scores: ``k`` = smaller set size, both classes subsampled to ``k``."""
+    k = min(len(real_set), len(decoy_set))
+    rng = np.random.default_rng(seed)
+    values = [real_set[i] for i in rng.choice(len(real_set), k, replace=False)]
+    values += [decoy_set[i] for i in rng.choice(len(decoy_set), k, replace=False)]
+    y = np.array([1] * k + [0] * k)
+    return _scores(_matrix(values, model), y, folds(values, y, seed), seed)
 
 
 def run(model: Any, heldout_path: str | Path, n: int = 10000, seed: int = 7) -> dict[str, Any]:
@@ -211,17 +247,36 @@ def run(model: Any, heldout_path: str | Path, n: int = 10000, seed: int = 7) -> 
     (``model.sample()``), extracts :func:`features` for each, and runs 5-fold stratified CV of
     both classifiers. Returns ``n``, per-classifier accuracy mean/std and ROC-AUC mean, and an
     interpretation note. Accuracy near 0.5 means the decoys are indistinguishable.
+
+    Two more protocols on the same samples: ``grouped`` (identical strings never in both train
+    and test, :func:`folds`) and ``distinct`` (distinct strings only, see the module docstring).
+    Both are ``skipped`` if a class has fewer than ``CV_FOLDS`` distinct strings.
     """
     reals = _sample_heldout(heldout_path, n, seed)
     decoys = [model.sample() for _ in range(n)]
-    x = np.array([features(v, model) for v in (*reals, *decoys)], dtype=float)
-    x = np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
+    values = [*reals, *decoys]
+    x = _matrix(values, model)
     y = np.array([1] * len(reals) + [0] * len(decoys))
+    report: dict[str, Any] = {
+        "n": len(reals),
+        **_scores(x, y, folds(values, y, seed), seed),
+        "interpretation": INTERPRETATION,
+    }
 
-    report: dict[str, Any] = {"n": len(reals)}
-    for name, clf in _classifiers(seed):
-        report[name] = _score(clf, x, y, seed)
-    report["interpretation"] = INTERPRETATION
+    real_set, decoy_set = sorted(set(reals)), sorted(set(decoys))
+    grouped: dict[str, Any] = {"n": len(reals), "distinct_strings": len(set(values))}
+    distinct: dict[str, Any] = {
+        "n": min(len(real_set), len(decoy_set)),
+        "distinct_real": len(real_set),
+        "distinct_decoy": len(decoy_set),
+    }
+    if distinct["n"] < CV_FOLDS:  # e.g. a constant decoy: one group cannot fill every fold
+        grouped["skipped"] = distinct["skipped"] = f"< {CV_FOLDS} distinct strings in a class"
+    else:
+        grouped |= _scores(x, y, folds(values, y, seed, grouped=True), seed)
+        distinct |= _distinct_scores(real_set, decoy_set, model, seed)
+    report["grouped"] = grouped
+    report["distinct"] = distinct
     return report
 
 
