@@ -81,3 +81,42 @@ To run the full stack with mTLS between the API and Honeychecker, use the overla
 docker compose -f docker-compose.yml -f docker-compose.mtls.yml up -d --build
 python backend/scripts/verify_mtls.py
 ```
+
+## Verified run
+
+Commands executed:
+
+```bash
+# 1. Start the stack with the mTLS overlay configuration
+docker compose -f docker-compose.yml -f docker-compose.mtls.yml up -d --build
+
+# 2. Run the mTLS verification suite
+python backend/scripts/verify_mtls.py
+```
+
+Output:
+
+```
+TEST                           | RESULT
+--------------------------------------------------
+1. No client cert              | PASS
+2. With API client cert        | PASS
+3. With throwaway cert         | PASS
+```
+
+### End-to-end Verification via API
+
+Testing user registration and login through the API at `http://localhost:8000`:
+- `POST /api/auth/register` -> `201 Created`
+- `POST /api/auth/login` -> `200 OK`
+
+Honeychecker container logs (`docker compose logs honeychecker`):
+```text
+honeychecker-1  | INFO:     Started server process [1]
+honeychecker-1  | INFO:     Waiting for application startup.
+honeychecker-1  | INFO:     Application startup complete.
+honeychecker-1  | INFO:     Uvicorn running on https://0.0.0.0:8001 (Press CTRL+C to quit)
+honeychecker-1  | INFO:     172.19.0.4:39862 - "POST /hc/register HTTP/1.1" 201 Created
+honeychecker-1  | INFO:     172.19.0.4:39876 - "POST /hc/check HTTP/1.1" 200 OK
+```
+Both sweetword registration and credential checking are authenticated and delivered securely over mTLS.
