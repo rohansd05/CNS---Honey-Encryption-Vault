@@ -7,7 +7,8 @@ Owner: T1 -- Dhruv. Phase 2.
 * ``round_trip`` -- ``decode(encode(x)) == x`` for held-out passwords, usernames and whole
   entries, plus ``decode`` totality on uniformly random seeds (PROJECT-BRIEF.md §11).
 * ``chi_squared`` -- :func:`eval.chi_squared.run` (seed uniformity + template goodness of fit).
-* ``classifier`` -- :func:`eval.classifier.run` (LR + RF distinguisher, real vs decoy).
+* ``classifier`` -- :func:`eval.classifier.run` (LR + RF distinguisher, real vs decoy), with
+  with-replacement, grouped-by-string and distinct-strings-only CV.
 * ``attack`` -- :mod:`attack.simulator` on a fresh ``demo``-profile honey vault and a conventional
   vault holding the same 8 synthetic entries, demo wordlist, 500 guesses.
 * ``kdf`` -- Argon2id derive time and 8-entry unlock time for every KDF profile.
@@ -58,7 +59,7 @@ DEFAULT_HELDOUT_PASSWORDS = chi_squared.DEFAULT_HELDOUT_PASSWORDS
 DEFAULT_HELDOUT_USERNAMES = chi_squared.DEFAULT_HELDOUT_USERNAMES
 
 RESULTS_VERSION = "1.0.0"
-DATASET_NOTE = "SecLists RockYou, Zipf-ranked weights"
+DATASET_NOTE = "SecLists RockYou, Zipf-ranked weights; usernames: SecLists xato-net, Zipf-ranked"
 TARGET_ACCURACY = 0.60
 IDEAL_ACCURACY = 0.50
 TARGET_UNLOCK_P95_MS = 1500
@@ -100,37 +101,6 @@ QUICK = RunConfig(200, 200, 100, 300, 300, 200, 300, 20, 1)
 # ---------------------------------------------------------------------------------------------
 # honeycore wiring
 # ---------------------------------------------------------------------------------------------
-class ConcatEntryDTE:
-    """§7.5 entry DTE: ``seed = username_seed (268 B) || password_seed (264 B)``.
-
-    Used only while ``honeycore.dte.entry_dte.PCFGEntryDTE`` is a placeholder; :func:`_honeycore`
-    switches to the real one automatically once it lands. Decoding is total because both
-    field DTEs are.
-    """
-
-    seed_len = ENTRY_SEED_LEN
-
-    def __init__(self, username_model: Any, password_model: Any) -> None:
-        self.username_model = username_model
-        self.password_model = password_model
-        self._split = username_model.seed_len
-        if self._split + password_model.seed_len != ENTRY_SEED_LEN:
-            raise ValueError(f"field seeds must add up to {ENTRY_SEED_LEN} bytes")
-
-    def encode(self, username: str, password: str) -> bytes:
-        """Encode one (username, password) pair to an ``ENTRY_SEED_LEN``-byte seed."""
-        return self.username_model.encode(username) + self.password_model.encode(password)
-
-    def decode(self, seed: bytes) -> tuple[str, str]:
-        """TOTAL: any ``ENTRY_SEED_LEN``-byte seed -> a valid (username, password)."""
-        if len(seed) != ENTRY_SEED_LEN:
-            raise ValueError(f"entry seed must be {ENTRY_SEED_LEN} bytes")
-        return (
-            self.username_model.decode(seed[: self._split]),
-            self.password_model.decode(seed[self._split :]),
-        )
-
-
 @dataclass(frozen=True)
 class Core:
     """The real honeycore pieces the evaluation needs."""
@@ -144,38 +114,20 @@ class Core:
 
 
 def _honeycore() -> Core:
-    """The real honeycore (never the stub), via ``load_honeycore`` when it is complete.
+    """The real honeycore via ``load_honeycore("real")``, never the stub (``HONEYCORE_IMPL``).
 
-    Until ``PCFGEntryDTE`` lands, ``load_honeycore("real")`` raises ``NotImplementedError``; the
-    vault is then bound to :class:`ConcatEntryDTE` over the committed PCFG models.
+    The vault is bound to ``honeycore.dte.entry_dte.PCFGEntryDTE``; the field models are the
+    entry DTE's own instances, so every section measures exactly what the vault uses.
     """
-    from honeycore.dte.username_dte import PCFGUsernameModel
     from honeycore.factory import load_honeycore
 
-    username_model = PCFGUsernameModel.load_default()
-    try:
-        hc = load_honeycore("real")
-    except NotImplementedError:
-        from honeycore.baseline import ConventionalVault
-        from honeycore.dte.password_dte import PCFGPasswordModel
-        from honeycore.vault import HoneyVault
-
-        password_model = PCFGPasswordModel.load_default()
-        entry_dte = ConcatEntryDTE(username_model, password_model)
-        return Core(
-            vault_cls=HoneyVault.bind(entry_dte),
-            conventional_vault_cls=ConventionalVault,
-            entry_dte=entry_dte,
-            password_model=password_model,
-            username_model=username_model,
-            entry_dte_impl="eval.run_all.ConcatEntryDTE (PCFGEntryDTE not landed yet)",
-        )
+    hc = load_honeycore("real")
     return Core(
         vault_cls=hc.vault_cls,
         conventional_vault_cls=hc.conventional_vault_cls,
         entry_dte=hc.entry_dte,
         password_model=hc.password_model,
-        username_model=username_model,
+        username_model=hc.entry_dte.username_model,
         entry_dte_impl=f"{type(hc.entry_dte).__module__}.{type(hc.entry_dte).__name__}",
     )
 
@@ -493,8 +445,11 @@ def run_classifier(
     """Return ``(classifier, distinguisher)``: raw ``classifier.run`` output and the page view.
 
     The page's headline ``metrics`` are those of the *stronger* classifier (higher accuracy):
-    the attacker picks the best tool, so that is the honest number to report.
+    the attacker picks the best tool, so that is the honest number to report. They use the
+    with-replacement protocol; ``grouped_results`` / ``distinct_results`` add the grouped-CV and
+    distinct-strings-only scores (see :mod:`eval.classifier`).
     """
+    names = ("logreg", "random_forest")
     raw: dict[str, Any] = {
         "password": classifier.run(core.password_model, heldout_passwords, n=n, seed=seed)
     }
@@ -504,7 +459,11 @@ def run_classifier(
         raw["username"] = {"skipped": "no held-out usernames file"}
 
     pw = raw["password"]
-    best = max(("logreg", "random_forest"), key=lambda k: pw[k]["accuracy_mean"])
+    best = max(names, key=lambda k: pw[k]["accuracy_mean"])
+    grouped = {k: pw["grouped"][k] for k in names if k in pw["grouped"]}  # absent if skipped
+    distinct = {k: pw["distinct"][k] for k in names if k in pw["distinct"]}
+    grouped_acc = max((s["accuracy_mean"] for s in grouped.values()), default=math.nan)
+    distinct_acc = max((s["accuracy_mean"] for s in distinct.values()), default=math.nan)
     pr = _precision_recall(core.password_model, heldout_passwords, n, seed, best)
     acc = pw[best]["accuracy_mean"]
     if acc <= IDEAL_ACCURACY + 0.05:
@@ -524,12 +483,16 @@ def run_classifier(
             "baseline_chance": IDEAL_ACCURACY,
         },
         "metrics_classifier": best,
-        "per_classifier": {k: pw[k] for k in ("logreg", "random_forest")},
+        "per_classifier": {k: pw[k] for k in names},
+        "grouped_results": grouped,
+        "distinct_results": distinct,
         "n_per_class": pw["n"],
         "target_accuracy": TARGET_ACCURACY,
         "ideal_accuracy": IDEAL_ACCURACY,
         "conclusion": (
-            f"Password distinguisher ({best}) accuracy {acc:.3f} vs ideal 0.5: {verdict}."
+            f"Password distinguisher ({best}) accuracy {acc:.3f} vs ideal 0.5: {verdict}. "
+            f"Best accuracy with grouped CV (no string in both train and test) "
+            f"{grouped_acc:.3f}; on distinct strings only {distinct_acc:.3f}."
         ),
     }
     return raw, distinguisher
@@ -796,7 +759,12 @@ def _headline(r: dict[str, Any]) -> str:
             f"chi2 seed bytes p={chi['seed_uniformity']['p_value']:.4g}, "
             f"template GOF p={chi['template_goodness_of_fit']['p_value']:.4g}",
             f"distinguisher {d['metrics_classifier']} acc={d['metrics']['accuracy']:.3f} "
-            f"auc={d['metrics']['roc_auc']:.3f}",
+            f"auc={d['metrics']['roc_auc']:.3f}; "
+            + ", ".join(
+                f"{p} {k}={s['accuracy_mean']:.3f}"
+                for p in ("grouped", "distinct")
+                for k, s in d[f"{p}_results"].items()
+            ),
             f"attack: conventional cracked={a['conventional']['cracked']} at "
             f"#{a['conventional']['guess_index']}; honey distinct vaults "
             f"{a['honey']['distinct_vaults']}/{a['honey']['guesses_tried']}",

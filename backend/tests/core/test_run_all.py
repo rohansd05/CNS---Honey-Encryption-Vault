@@ -13,12 +13,12 @@ from typing import Any
 import pytest
 
 from eval import run_all
-from eval.run_all import ConcatEntryDTE, describe_template, main
+from eval.run_all import describe_template, main
+from honeycore.dte.entry_dte import PCFGEntryDTE
 from honeycore.dte.password_dte import DEFAULT_MODEL_PATH as PASSWORD_MODEL_PATH
 from honeycore.dte.password_dte import PCFGPasswordModel
 from honeycore.dte.username_dte import DEFAULT_MODEL_PATH as USERNAME_MODEL_PATH
 from honeycore.dte.username_dte import PCFGUsernameModel
-from honeycore.interfaces import ENTRY_SEED_LEN
 
 pytestmark = pytest.mark.skipif(
     not (PASSWORD_MODEL_PATH.exists() and USERNAME_MODEL_PATH.exists()),
@@ -73,9 +73,23 @@ def quick_results(
     return _strict_load(out)
 
 
+CLASSIFIERS = {"logreg", "random_forest"}
+
+
 def test_quick_has_all_top_level_keys(quick_results: dict[str, Any]) -> None:
     assert TASK_KEYS | PAGE_KEYS <= set(quick_results)
     assert quick_results["meta"]["mode"] == "quick"
+    # New keys only: grouped-CV and distinct-strings protocols next to the existing ones.
+    for kind in ("password", "username"):
+        clf = quick_results["classifier"][kind]
+        assert {"n", "interpretation", "grouped", "distinct"} | CLASSIFIERS <= set(clf)
+        assert CLASSIFIERS <= set(clf["grouped"]) and CLASSIFIERS <= set(clf["distinct"])
+    dist = quick_results["distinguisher"]
+    assert {"metrics", "per_classifier", "metrics_classifier", "conclusion"} <= set(dist)
+    for key in ("per_classifier", "grouped_results", "distinct_results"):
+        assert set(dist[key]) == CLASSIFIERS
+        for score in dist[key].values():
+            assert 0.0 <= score["accuracy_mean"] <= 1.0
 
 
 def test_quick_matches_evaluation_page_shape(quick_results: dict[str, Any]) -> None:
@@ -138,15 +152,13 @@ def test_missing_password_heldout_raises(tmp_path: Path) -> None:
         run_all.build_results(quick=True, heldout_passwords=tmp_path / "nope.tsv")
 
 
-def test_concat_entry_dte_round_trip_and_totality() -> None:
-    un, pw = PCFGUsernameModel.load_default(), PCFGPasswordModel.load_default()
-    dte = ConcatEntryDTE(un, pw)
-    seed = dte.encode("alice@gmail.com", "Tr0ub4dor&3")
-    assert len(seed) == ENTRY_SEED_LEN
-    assert dte.decode(seed) == ("alice@gmail.com", "Tr0ub4dor&3")
-    assert all(dte.decode(bytes([b]) * ENTRY_SEED_LEN) for b in (0x00, 0x7F, 0xFF))
-    with pytest.raises(ValueError):
-        dte.decode(b"\x00" * (ENTRY_SEED_LEN - 1))
+def test_uses_real_pcfg_entry_dte(quick_results: dict[str, Any]) -> None:
+    core = run_all._honeycore()
+    assert isinstance(core.entry_dte, PCFGEntryDTE)
+    assert core.username_model is core.entry_dte.username_model
+    assert core.password_model is core.entry_dte.password_model
+    assert quick_results["meta"]["entry_dte_impl"] == "honeycore.dte.entry_dte.PCFGEntryDTE"
+    assert quick_results["round_trip"]["usernames"]["source"] == "heldout"
 
 
 def test_describe_template() -> None:
