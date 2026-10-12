@@ -84,11 +84,6 @@ def test_stubs_satisfy_protocols() -> None:
     assert isinstance(core.conventional_vault_cls.new(MASTER, "demo"), ConventionalVaultAPI)
 
 
-def test_real_impl_reports_owner() -> None:
-    with pytest.raises(NotImplementedError, match="owner:"):
-        load_honeycore("real")
-
-
 def test_sigil_tables() -> None:
     assert len(EMOJI64) == len(set(EMOJI64)) == 64
     assert len(PALETTE16) == len(set(PALETTE16)) == 16

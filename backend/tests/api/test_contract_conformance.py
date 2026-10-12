@@ -1,14 +1,43 @@
 import re
 import secrets
+from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.config import get_settings
 from app.main import app
+from app.rate_limit import limiter
+from app.services.honeychecker_client import HoneycheckerClient, get_honeychecker_client
 
-client = TestClient(app)
 settings = get_settings()
+
+
+class FakeHoneycheckerClient(HoneycheckerClient):
+    """In-memory honeychecker so registration/login work without a running service."""
+
+    def __init__(self) -> None:
+        self.indices: dict[str, int] = {}
+
+    def register(self, user_id: str, index: int) -> None:
+        self.indices[user_id] = index
+
+    def check(self, user_id: str, index: int) -> bool:
+        return self.indices.get(user_id) == index
+
+    def health(self) -> bool:
+        return True
+
+
+@pytest.fixture(autouse=True)
+def override_honeychecker(client: TestClient) -> Generator[None, None, None]:
+    """Wire the fake honeychecker into the in-memory ``client`` app and reset rate limits."""
+    limiter.reset()
+    fake_hc = FakeHoneycheckerClient()
+    client.app.dependency_overrides[get_honeychecker_client] = lambda: fake_hc
+    yield
+    client.app.dependency_overrides.pop(get_honeychecker_client, None)
+    limiter.reset()
 
 
 def normalize_path(path: str) -> str:
@@ -52,7 +81,7 @@ def test_openapi_contract_paths_exist():
         assert method in normalized_actual[norm_path], f"Method {method.upper()} missing for {path}"
 
 
-def test_post_password_no_echo():
+def test_post_password_no_echo(client: TestClient):
     """For every POST endpoint accepting a password-like field, submit an invalid value
     and verify the response body does not contain that submitted value."""
 
@@ -95,7 +124,7 @@ def test_post_password_no_echo():
                 assert v not in resp_text, f"Endpoint {path} echoes {k} in response: {resp_text}"
 
 
-def test_unlock_wrong_master_password():
+def test_unlock_wrong_master_password(client: TestClient):
     """Verify wrong master password on /api/vault/unlock returns HTTP 200 with entries and sigil."""
     username = f"test_{secrets.token_hex(4)}"
     login_pw = "login_" + secrets.token_hex(8)
@@ -134,7 +163,7 @@ def test_unlock_wrong_master_password():
         ("get", "/api/attack/alarms"),
     ],
 )
-def test_demo_mode_endpoints(method, endpoint):
+def test_demo_mode_endpoints(client: TestClient, method, endpoint):
     """Mark intentional DEMO_MODE-only endpoints with explicit skip reasons rather than failing."""
     # We just make sure they don't return 404 because of "Demo mode disabled"
     # (Since we are skipping if demo_mode is disabled, this code only runs when enabled).

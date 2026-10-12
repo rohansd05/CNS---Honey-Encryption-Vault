@@ -1,14 +1,20 @@
 """Select the honeycore implementation (``HONEYCORE_IMPL=stub|real``).
 
-Owner: T1 lead — Nidhi ("real" wiring lands in Phase 2). Callers (the API, attack demo,
-eval) must obtain every honeycore object through ``load_honeycore`` and never import
-``stubs`` or real modules directly, so the stub -> real swap is a one-line env change.
+Owner: T1 lead — Nidhi. Callers (the API, attack demo, eval) must obtain every honeycore object
+through ``load_honeycore`` and never import ``stubs`` or real modules directly, so the
+stub <-> real swap is a one-line env change.
+
+``"real"`` builds the bundle once per process (the PCFG models are a few MB each):
+``entry_dte = PCFGEntryDTE.load_default()``, ``vault_cls = HoneyVault.bind(entry_dte)``,
+``password_model`` = the entry DTE's ``PCFGPasswordModel`` (the same loaded instance, used for
+honeywords), the baseline ``ConventionalVault``, ``Sharing()`` and ``PKI()``.
 """
 
 from __future__ import annotations
 
 import importlib
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Literal
 
 from honeycore.interfaces import (
@@ -19,6 +25,12 @@ from honeycore.interfaces import (
     PasswordModel,
     SharingAPI,
 )
+
+# Example training input per model kind, for the missing-model error (paths from backend/).
+_TRAIN_INPUTS: dict[str, str] = {
+    "password": "../data/raw/rockyou-withcount.txt.bz2",
+    "username": "../data/raw/xato-net-10-million-usernames.txt",
+}
 
 
 @dataclass(frozen=True)
@@ -33,20 +45,8 @@ class HoneyCore:
     pki: PKIAPI
 
 
-# (module under honeycore, expected export, owner). Exports are instantiated with no args,
-# except vault classes which are used as classes. Phase 2 may revise this table.
-_REAL_PARTS: dict[str, tuple[str, str, str]] = {
-    "vault_cls": ("vault", "HoneyVault", "T1 Dhruv"),
-    "conventional_vault_cls": ("baseline", "ConventionalVault", "T1 Dhruv"),
-    "entry_dte": ("dte.entry_dte", "PCFGEntryDTE", "T1 Nidhi"),
-    "password_model": ("dte.password_dte", "PCFGPasswordModel", "T1 Nidhi"),
-    "sharing": ("sharing", "Sharing", "T4 Parth"),
-    "pki": ("pki", "PKI", "T4 Parth"),
-}
-_CLASS_FIELDS = {"vault_cls", "conventional_vault_cls"}
-
-
 def _load_real_part(module: str, name: str, owner: str) -> Any:
+    """Import ``honeycore.<module>.<name>``; ``NotImplementedError`` naming the owner if absent."""
     qualified = f"honeycore.{module}"
     try:
         obj = getattr(importlib.import_module(qualified), name)
@@ -55,11 +55,51 @@ def _load_real_part(module: str, name: str, owner: str) -> Any:
     return obj
 
 
+def _require_model_files() -> None:
+    """Raise ``RuntimeError`` naming the first missing model file and its train command."""
+    from honeycore.dte import password_dte, username_dte
+
+    for kind, path in (
+        ("password", password_dte.DEFAULT_MODEL_PATH),
+        ("username", username_dte.DEFAULT_MODEL_PATH),
+    ):
+        if not path.is_file():
+            raise RuntimeError(
+                f"PCFG {kind} model file not found: {path}. Train it from backend/ with: "
+                f"python scripts/train_pcfg.py --kind {kind} --input {_TRAIN_INPUTS[kind]} "
+                f"--out honeycore/models/{path.name} "
+                "(fetch corpora first with scripts/download_corpus.py)"
+            )
+
+
+@lru_cache(maxsize=1)
+def _load_real() -> HoneyCore:
+    """Build the real bundle (cached: models are parsed once per process)."""
+    vault_cls = _load_real_part("vault", "HoneyVault", "T1 Dhruv")
+    conventional_vault_cls = _load_real_part("baseline", "ConventionalVault", "T1 Dhruv")
+    entry_dte_cls = _load_real_part("dte.entry_dte", "PCFGEntryDTE", "T1 Nidhi")
+    sharing_cls = _load_real_part("sharing", "Sharing", "T4 Parth")
+    pki_cls = _load_real_part("pki", "PKI", "T4 Parth")
+
+    _require_model_files()
+    entry_dte = entry_dte_cls.load_default()
+    return HoneyCore(
+        vault_cls=vault_cls.bind(entry_dte),
+        conventional_vault_cls=conventional_vault_cls,
+        entry_dte=entry_dte,
+        # Same instance as PCFGPasswordModel.load_default() inside the entry DTE: one load.
+        password_model=entry_dte.password_model,
+        sharing=sharing_cls(),
+        pki=pki_cls(),
+    )
+
+
 def load_honeycore(impl: Literal["stub", "real"]) -> HoneyCore:
     """Return the stub or real honeycore bundle.
 
-    ``"real"`` imports modules lazily and raises ``NotImplementedError`` naming the owner of
-    the first missing piece.
+    ``"real"`` imports modules lazily and returns a process-cached bundle. Raises
+    ``NotImplementedError`` naming the owner of a missing module, and ``RuntimeError`` naming
+    the file and the ``train_pcfg.py`` command if a PCFG model file is missing.
     """
     if impl == "stub":
         from honeycore import stubs
@@ -73,9 +113,5 @@ def load_honeycore(impl: Literal["stub", "real"]) -> HoneyCore:
             pki=stubs.StubPKI(),
         )
     if impl == "real":
-        parts: dict[str, Any] = {}
-        for field_name, (module, name, owner) in _REAL_PARTS.items():
-            obj = _load_real_part(module, name, owner)
-            parts[field_name] = obj if field_name in _CLASS_FIELDS else obj()
-        return HoneyCore(**parts)
+        return _load_real()
     raise ValueError(f"unknown HONEYCORE_IMPL: {impl!r} (expected 'stub' or 'real')")

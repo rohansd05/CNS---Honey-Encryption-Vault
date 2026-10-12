@@ -49,24 +49,11 @@ from honeycore.interfaces import (
     WrongPasswordError,
 )
 
-_PRINTABLE_COUNT = PRINTABLE_MAX - PRINTABLE_MIN + 1  # 95
+# Sigil tables (§7.9) from the real ``sigil.py`` (pure, no heavy imports), so stub and real
+# mode show the same emoji alphabet and palette. Importers of ``stubs.EMOJI64`` still work.
+from honeycore.sigil import EMOJI64, PALETTE16
 
-# Sigil tables (§7.9). Kept here so the stub is self-contained; the real ``sigil.py``
-# (T1 Nidhi) may import these so the UI shows the same alphabet in both modes.
-EMOJI64: tuple[str, ...] = (
-    "🍯", "🐝", "🌊", "🐙", "🦀", "🐠", "🐬", "🐳",
-    "🦈", "🐢", "🦭", "🪼", "🐚", "🧊", "🛶", "🧭",
-    "🌴", "🌵", "🌻", "🌹", "🍀", "🍁", "🍄", "🌙",
-    "🌟", "🌈", "🌋", "🪐", "🔥", "💧", "🍎", "🍋",
-    "🍇", "🍉", "🍒", "🥝", "🥕", "🌽", "🥨", "🧀",
-    "🦊", "🐼", "🐨", "🦁", "🐯", "🐸", "🦉", "🦋",
-    "🎈", "🎲", "🎸", "🎯", "🚀", "🛸", "🏰", "🔑",
-    "💎", "🔔", "📚", "🧩", "🪁", "🎨", "🧲", "🔭",
-)  # fmt: skip
-PALETTE16: tuple[str, ...] = (
-    "#F5A524", "#E5484D", "#30A46C", "#0091FF", "#8E4EC6", "#12A594", "#F76B15", "#D6409F",
-    "#3E63DD", "#46A758", "#FFC53D", "#AD7F58", "#00A2C7", "#E54666", "#6E56CF", "#8D8D8D",
-)  # fmt: skip
+_PRINTABLE_COUNT = PRINTABLE_MAX - PRINTABLE_MIN + 1  # 95
 
 _ENC_LABEL = b"honeyvault-enc-v1"
 _SIGIL_LABEL = b"honeyvault-sigil-v1"

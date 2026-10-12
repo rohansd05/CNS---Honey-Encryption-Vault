@@ -9,10 +9,13 @@ import os
 import ssl
 from pathlib import Path
 
+import pytest
 from cryptography import x509
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
+from honeycore.pki import build_root_ca, generate_ec_key, issue_leaf
 from scripts.verify_mtls import (
     _MTLSAdapter,
     build_ssl_context,
@@ -22,11 +25,51 @@ from scripts.verify_mtls import (
 )
 
 
-def test_resolve_pki_dir() -> None:
+@pytest.fixture
+def pki_out(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Build a throwaway service CA + api-client cert/key under ``tmp_path/pki/out``.
+
+    Uses the same file names as ``pki/make_service_ca.py`` / ``issue_service_certs.py``,
+    then chdirs into ``tmp_path`` so ``resolve_pki_dir()`` finds ``pki/out`` first and
+    never touches the developer's real (gitignored) ``pki/out``.
+    """
+    out_dir = tmp_path / "pki" / "out"
+    out_dir.mkdir(parents=True)
+
+    ca_cert_pem, ca_key_pem = build_root_ca("Test Service CA", days=1)
+    client_key = generate_ec_key()
+    client_public_pem = client_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    client_cert_pem = issue_leaf(
+        ca_cert_pem,
+        ca_key_pem,
+        cn="honeyvault-api",
+        public_pem=client_public_pem,
+        days=1,
+        eku_client_auth=True,
+    )
+    client_key_pem = client_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+
+    (out_dir / "service-ca.crt").write_bytes(ca_cert_pem)
+    (out_dir / "api-client.crt").write_bytes(client_cert_pem)
+    (out_dir / "api-client.key").write_bytes(client_key_pem)
+
+    monkeypatch.chdir(tmp_path)
+    return out_dir.resolve()
+
+
+def test_resolve_pki_dir(pki_out: Path) -> None:
     """Verify resolve_pki_dir locates the directory containing service-ca.crt."""
     pki_dir = resolve_pki_dir()
     assert pki_dir.is_dir()
     assert (pki_dir / "service-ca.crt").is_file()
+    assert pki_dir == pki_out
 
 
 def test_generate_and_cleanup_throwaway_cert(tmp_path: Path) -> None:
@@ -57,7 +100,7 @@ def test_generate_and_cleanup_throwaway_cert(tmp_path: Path) -> None:
     assert not os.path.exists(key_path)
 
 
-def test_build_ssl_context() -> None:
+def test_build_ssl_context(pki_out: Path) -> None:
     """Verify build_ssl_context configures CA verify locations and client certificate."""
     pki_dir = resolve_pki_dir()
     ca_path = str(pki_dir / "service-ca.crt")
@@ -74,7 +117,7 @@ def test_build_ssl_context() -> None:
     assert isinstance(ctx_client, ssl.SSLContext)
 
 
-def test_mtls_adapter_init_poolmanager() -> None:
+def test_mtls_adapter_init_poolmanager(pki_out: Path) -> None:
     """Verify _MTLSAdapter injects the configured SSLContext into poolmanager kwargs."""
     pki_dir = resolve_pki_dir()
     ca_path = str(pki_dir / "service-ca.crt")
