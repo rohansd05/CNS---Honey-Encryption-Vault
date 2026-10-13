@@ -1,0 +1,45 @@
+# Version control
+.git/
+.gitignore
+
+# Virtual environments
+.venv/
+**/.venv/
+backend/.venv/
+honeychecker/.venv/
+venv/
+env/
+ENV/
+
+# Python caches and artifacts
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+**/.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Node / Frontend artifacts
+**/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Secrets, environment variables, local databases
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite3
+
+# Data and PKI outputs (normative invariants from AGENTS.md)
+data/
+pki/out/
+
+# IDE and OS metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

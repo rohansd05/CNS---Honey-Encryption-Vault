@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(git pull *)",
+      "Bash(git merge *)", "Bash(git rebase *)", "Bash(git reset *)", "Bash(git restore *)",
+      "Bash(git checkout *)", "Bash(git switch *)", "Bash(git stash *)", "Bash(git tag *)",
+      "Bash(git cherry-pick *)", "Bash(git revert *)", "Bash(git clean *)", "Bash(git rm *)",
+      "Bash(git mv *)", "Bash(git remote *)", "Bash(gh pr *)", "Bash(gh repo *)", "Bash(gh release *)",
+      "PowerShell(git add *)", "PowerShell(git commit *)", "PowerShell(git push *)", "PowerShell(git pull *)",
+      "PowerShell(git merge *)", "PowerShell(git rebase *)", "PowerShell(git reset *)", "PowerShell(git restore *)",
+      "PowerShell(git checkout *)", "PowerShell(git switch *)", "PowerShell(git stash *)", "PowerShell(git tag *)",
+      "PowerShell(git cherry-pick *)", "PowerShell(git revert *)", "PowerShell(git clean *)",
+      "PowerShell(gh pr *)", "PowerShell(gh repo *)", "PowerShell(gh release *)"
+    ]
+  }
+}

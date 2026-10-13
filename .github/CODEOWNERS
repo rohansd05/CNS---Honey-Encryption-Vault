@@ -1,0 +1,52 @@
+# ---- Default ----
+*                                     @Nidzz07 @dhruvgangurde
+
+# ---- T1 Core Crypto & DTE ----
+/backend/honeycore/                   @Nidzz07 @dhruvgangurde
+/backend/attack/                      @dhruvgangurde @Nidzz07
+/backend/eval/                        @dhruvgangurde @Nidzz07
+/backend/scripts/download_corpus.py   @Nidzz07
+/backend/scripts/train_pcfg.py        @Nidzz07
+
+# ---- T2 Backend API & Honeywords ----
+/backend/app/                         @tanujb03 @rohansd05
+/backend/alembic/                     @tanujb03 @rohansd05
+/backend/scripts/seed_demo.py         @tanujb03
+/backend/tests/api/                   @tanujb03 @rohansd05
+/honeychecker/                        @rohansd05 @tanujb03
+
+# ---- T3 Frontend ----
+/frontend/                            @krrishgadekar @ChetanC09
+
+# ---- T4 Security Infra (Parth) ----
+/backend/honeycore/sharing.py         @Pgogg @Nidzz07
+/backend/honeycore/pki.py             @Pgogg @Nidzz07
+/backend/honeycore/transport.py       @Pgogg @Nidzz07
+/pki/                                 @Pgogg
+/honeychecker/app/security.py         @Pgogg @rohansd05
+/backend/tests/infra/                 @Pgogg @vedantghuge22-hash
+
+# ---- T4 Deployment (Vedant) ----
+/.github/                             @vedantghuge22-hash @rohansd05
+/docker-compose.yml                   @vedantghuge22-hash
+/render.yaml                          @vedantghuge22-hash
+**/Dockerfile                         @vedantghuge22-hash
+/frontend/vercel.json                 @vedantghuge22-hash @krrishgadekar
+/docs/deployment.md                   @vedantghuge22-hash
+/backend/scripts/smoke_test.py        @vedantghuge22-hash
+
+# ---- T5 Utilities (Aryan, Tanmay: add handles when available) ----
+/backend/app/utils/strength.py        @tanujb03
+/backend/app/api/utils.py             @tanujb03
+/backend/scripts/build_attack_wordlist.py  @dhruvgangurde
+/backend/attack/wordlists/            @dhruvgangurde
+
+# ---- Frozen contracts & agent rules (always T1 lead) ----
+/backend/honeycore/interfaces.py      @Nidzz07 @dhruvgangurde
+/docs/api-contract.md                 @Nidzz07 @tanujb03 @rohansd05
+/PROJECT-BRIEF.md                     @Nidzz07
+/PROJECT-ROADMAP.md                   @Nidzz07
+/AGENTS.md                            @Nidzz07
+/CLAUDE.md                            @Nidzz07
+/.claude/                             @Nidzz07
+/.env.example                         @Nidzz07 @vedantghuge22-hash

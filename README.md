@@ -44,13 +44,14 @@ flowchart LR
 ## Quickstart (local)
 Prerequisites: Python 3.12, Node 22, Git. (Docker optional, for the mTLS demo.)
 ```bash
-git clone https://github.com/vedantghuge22-hash/CNS-Honey-Encryption-Vault.git
-cd CNS-Honey-Encryption-Vault && cp .env.example .env
+git clone https://github.com/rohansd05/CNS---Honey-Encryption-Vault.git
+cd CNS---Honey-Encryption-Vault && cp .env.example .env
 
 # Backend + honeychecker
 cd backend && python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt -r ../honeychecker/requirements.txt
-alembic upgrade head && python scripts/seed_demo.py
+alembic upgrade head
+python scripts/seed_demo.py          # (available from Phase 2)
 uvicorn app.main:app --reload --port 8000
 # new terminal:  cd honeychecker && uvicorn app.main:app --reload --port 8001
 
@@ -76,13 +77,13 @@ python -m eval.run_all               # chi-squared, classifier, attack compariso
 | `docs/` | API contract, architecture, ADRs, threat model, evaluation report |
 
 ## Team — Ocean's 10
-| Track | Members |
+| Track | Members (GitHub) |
 |---|---|
-| T1 Core Crypto & DTE | Nidhi, Dhruv |
-| T2 Backend API & Honeywords | Tanuj, Rohan |
-| T3 Frontend | Krrish, Chetan |
-| T4 Security Infra & Deployment | Vedant, Parth |
-| T5 Utilities & Tooling | Tanmay, Aryan |
+| T1 Core Crypto & DTE | Nidhi (@Nidzz07), Dhruv (@dhruvgangurde) |
+| T2 Backend API & Honeywords | Tanuj (@tanujb03), Rohan (@rohansd05) |
+| T3 Frontend | Krrish (@krrishgadekar), Chetan (@ChetanC09) |
+| T4 Security Infra & Deployment | Vedant (@vedantghuge22-hash), Parth (@Pgogg) |
+| T5 Utilities & Tooling | Tanmay (TBD), Aryan (TBD) |
 
 ## Limitations
 Academic prototype — not a production password manager. A mistyped master password silently

@@ -1,0 +1,83 @@
+services:
+  # =====================================================================
+  # PostgreSQL Database (dual databases: honeyvault & honeychecker)
+  # =====================================================================
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/01-postgres-init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # =====================================================================
+  # Honeychecker Service (internal honeyword oracle)
+  # =====================================================================
+  honeychecker:
+    build:
+      context: .
+      dockerfile: honeychecker/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HC_DATABASE_URL: postgresql+psycopg://honeychecker:honeychecker@db:5432/honeychecker
+      HC_TRANSPORT: plain
+    ports:
+      - "8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # =====================================================================
+  # HoneyVault API Backend
+  # =====================================================================
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://honeyvault:honeyvault@db:5432/honeyvault
+      HONEYCHECKER_URL: http://honeychecker:8001
+      HONEYCHECKER_TRANSPORT: plain
+      ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      honeychecker:
+        condition: service_started
+
+  # =====================================================================
+  # HoneyVault Frontend Service (React + Vite SPA served via Nginx)
+  # =====================================================================
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    restart: unless-stopped
+    ports:
+      - "5173:8080"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:

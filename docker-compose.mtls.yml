@@ -1,0 +1,17 @@
+services:
+  api:
+    volumes:
+      - ./pki/out:/pki/out:ro
+    environment:
+      HONEYCHECKER_TRANSPORT: mtls
+      HONEYCHECKER_URL: https://honeychecker:8001
+      HC_CLIENT_CERT_PATH: /pki/out/api-client.crt
+      HC_CLIENT_KEY_PATH: /pki/out/api-client.key
+      HC_CA_CERT_PATH: /pki/out/service-ca.crt
+
+  honeychecker:
+    volumes:
+      - ./pki/out:/pki/out:ro
+    environment:
+      HC_TRANSPORT: mtls
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--ssl-certfile", "/pki/out/honeychecker-server.crt", "--ssl-keyfile", "/pki/out/honeychecker-server.key", "--ssl-ca-certs", "/pki/out/service-ca.crt", "--ssl-cert-reqs", "2"]
