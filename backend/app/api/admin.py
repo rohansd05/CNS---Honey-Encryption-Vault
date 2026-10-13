@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.deps import get_db
 from app.models.core import Alert, User
-from app.schemas.auth import AlertResponse
+from app.schemas.admin import AlertResponse
 from app.security import require_admin
 from app.services import alerts
 

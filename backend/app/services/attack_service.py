@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models.core import Alert, DemoArtifact, User, Vault
+from app.schemas.attack import format_utc_iso
 from attack import simulator
 from honeycore.factory import HoneyCore
 
@@ -52,13 +53,39 @@ def get_stolen_vault(db: Session, settings: Settings) -> dict[str, Any]:
             detail="Baseline vault artifact not found. Please seed the demo account first.",
         )
 
-    honey_blob = vault_rec.blob
+    honey_blob = dict(vault_rec.blob)
+    if "entries" in honey_blob and isinstance(honey_blob["entries"], list):
+        formatted_entries = []
+        for e in honey_blob["entries"]:
+            entry_copy = dict(e)
+            if "created_at" in entry_copy:
+                entry_copy["created_at"] = format_utc_iso(entry_copy["created_at"])
+            if "updated_at" in entry_copy:
+                entry_copy["updated_at"] = format_utc_iso(entry_copy["updated_at"])
+            formatted_entries.append(entry_copy)
+        honey_blob["entries"] = formatted_entries
+
+    baseline_blob = dict(baseline_art.payload)
+    if "entries" in baseline_blob and isinstance(baseline_blob["entries"], list):
+        formatted_entries = []
+        for e in baseline_blob["entries"]:
+            if isinstance(e, dict):
+                entry_copy = dict(e)
+                if "created_at" in entry_copy:
+                    entry_copy["created_at"] = format_utc_iso(entry_copy["created_at"])
+                if "updated_at" in entry_copy:
+                    entry_copy["updated_at"] = format_utc_iso(entry_copy["updated_at"])
+                formatted_entries.append(entry_copy)
+            else:
+                formatted_entries.append(e)
+        baseline_blob["entries"] = formatted_entries
+
     entries_count = len(honey_blob.get("entries", []))
     logger.info("Stolen vault fetched: %d entries in honey vault", entries_count)
 
     return {
         "honey_blob": honey_blob,
-        "baseline_blob": baseline_art.payload,
+        "baseline_blob": baseline_blob,
         "owner": demo_user.username,
     }
 
@@ -92,12 +119,12 @@ def get_stolen_honeywords(db: Session, settings: Settings) -> dict[str, Any]:
 
 
 def get_demo_alarms(db: Session, settings: Settings, limit: int = 20) -> list[Alert]:
-    """Retrieve recent alerts for the demo user, newest first (up to limit)."""
+    """Retrieve recent alerts for the demo user, newest first with deterministic tie-breaker."""
     fetch_limit = min(max(1, limit), 20)
     stmt = (
         select(Alert)
         .where(Alert.username == settings.demo_username)
-        .order_by(Alert.created_at.desc())
+        .order_by(Alert.created_at.desc(), Alert.id.desc())
         .limit(fetch_limit)
     )
     alarms = list(db.scalars(stmt).all())
