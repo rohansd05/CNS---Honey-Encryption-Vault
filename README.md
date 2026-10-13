@@ -1,5 +1,4 @@
 # 🍯 HoneyVault — Honey Encryption Password Vault
-**Live (staging):** https://honeyvault-three.vercel.app/ · API health: https://honeyvault-honeychecker.onrender.com/api/health
 
 > **A stolen vault file should be useless.** HoneyVault uses *Honey Encryption* so every wrong
 > master password decrypts to a complete, plausible **decoy vault** — an offline attacker gets
