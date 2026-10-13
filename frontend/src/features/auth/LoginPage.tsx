@@ -13,7 +13,14 @@ import { ApiError } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { AuthIllustration } from './AuthIllustration';
 
 const loginSchema = z.object({
@@ -24,7 +31,7 @@ const loginSchema = z.object({
   login_password: z
     .string()
     .min(1, 'Login password is required')
-    .max(32, 'Password must be at most 32 characters'),
+    .max(128, 'Password must be at most 128 characters'),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -75,9 +82,21 @@ export function LoginPage() {
       navigate(from, { replace: true });
     } catch (err: unknown) {
       if (err instanceof ApiError) {
-        toast.error('Authentication Failed', {
-          description: err.detail || 'Invalid username or password.',
-        });
+        if (err.status === 429) {
+          const wait = err.retryAfter ? `${String(err.retryAfter)}s` : 'a moment';
+          toast.error('Too Many Attempts', {
+            description: `Rate limit exceeded. Please wait ${wait} before trying again.`,
+          });
+        } else if (err.status === 503) {
+          toast.error('Security Service Unavailable', {
+            description:
+              'The security verification service is temporarily unavailable. Please try again later.',
+          });
+        } else {
+          toast.error('Authentication Failed', {
+            description: err.detail || 'Invalid username or password.',
+          });
+        }
       } else {
         toast.error('Login Error', {
           description: 'Unable to reach the server. Please check your connection.',
@@ -158,7 +177,10 @@ export function LoginPage() {
               >
                 {/* Username */}
                 <div className="space-y-2">
-                  <Label htmlFor="username" className="text-xs font-medium text-[var(--text-secondary)]">
+                  <Label
+                    htmlFor="username"
+                    className="text-xs font-medium text-[var(--text-secondary)]"
+                  >
                     Username
                   </Label>
                   <div className="relative">
@@ -241,10 +263,7 @@ export function LoginPage() {
           <CardFooter className="flex flex-col border-t border-[var(--border)] pt-4 text-center text-xs text-[var(--text-muted)] space-y-2">
             <p>
               Don&apos;t have a HoneyVault account yet?{' '}
-              <Link
-                to="/register"
-                className="font-semibold text-[var(--accent)] hover:underline"
-              >
+              <Link to="/register" className="font-semibold text-[var(--accent)] hover:underline">
                 Create one now →
               </Link>
             </p>

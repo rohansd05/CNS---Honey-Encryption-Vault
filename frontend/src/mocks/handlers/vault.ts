@@ -85,26 +85,73 @@ const REAL_SIGIL: Sigil = {
 
 // Deterministic decoy generation pools
 const DECOY_SIGIL_EMOJIS = [
-  '🦁', '🦊', '🦉', '⚡', '🌙', '🌊', '🔥', '💎',
-  '🌲', '🍄', '🪐', '⚓', '🎲', '🧩', '🚀', '🔮',
-  '🦅', '🐺', '🐉', '🍀', '🍎', '🍇', '🍒', '🎯',
+  '🦁',
+  '🦊',
+  '🦉',
+  '⚡',
+  '🌙',
+  '🌊',
+  '🔥',
+  '💎',
+  '🌲',
+  '🍄',
+  '🪐',
+  '⚓',
+  '🎲',
+  '🧩',
+  '🚀',
+  '🔮',
+  '🦅',
+  '🐺',
+  '🐉',
+  '🍀',
+  '🍎',
+  '🍇',
+  '🍒',
+  '🎯',
 ];
 
 const DECOY_SIGIL_COLORS = [
-  '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4',
-  '#f97316', '#6366f1', '#14b8a6', '#e11d48', '#84cc16',
+  '#3b82f6',
+  '#10b981',
+  '#8b5cf6',
+  '#ec4899',
+  '#06b6d4',
+  '#f97316',
+  '#6366f1',
+  '#14b8a6',
+  '#e11d48',
+  '#84cc16',
 ];
 
 const DECOY_USERNAMES = [
-  'shadow_runner88', 'cipher_knight', 'neon_voyager', 'alex_morgan_99',
-  'skywalker_2024', 'pixel_master', 'silver_hawk', 'storm_weaver',
-  'quiet_coder', 'echo_wanderer', 'cosmic_drift', 'lunar_spark',
+  'shadow_runner88',
+  'cipher_knight',
+  'neon_voyager',
+  'alex_morgan_99',
+  'skywalker_2024',
+  'pixel_master',
+  'silver_hawk',
+  'storm_weaver',
+  'quiet_coder',
+  'echo_wanderer',
+  'cosmic_drift',
+  'lunar_spark',
 ];
 
 const DECOY_PASSWORDS = [
-  'SummerBreeze2025!', 'DragonSlayer#99', 'BlueHorizon$82', 'GoldenSun*44',
-  'WinterStorm!19', 'SilverLight#77', 'CyberShield$21', 'QuietRiver*88',
-  'CrimsonDawn#12', 'VelvetNight!63', 'StarlightWay$55', 'ShadowHawk*31',
+  'SummerBreeze2025!',
+  'DragonSlayer#99',
+  'BlueHorizon$82',
+  'GoldenSun*44',
+  'WinterStorm!19',
+  'SilverLight#77',
+  'CyberShield$21',
+  'QuietRiver*88',
+  'CrimsonDawn#12',
+  'VelvetNight!63',
+  'StarlightWay$55',
+  'ShadowHawk*31',
 ];
 
 function simpleHash(str: string): number {
@@ -141,9 +188,23 @@ function generateDecoyVault(password: string): UnlockResponse {
 }
 
 export const vaultHandlers = [
-  // POST /api/vault/unlock — NEVER fails, returns real or deterministic decoy vault
+  // POST /api/vault/unlock — NEVER fails on wrong password, returns real or deterministic decoy vault
   http.post('/api/vault/unlock', async ({ request }) => {
     const body = (await request.json()) as UnlockRequest;
+
+    if (body.master_password === 'ratelimited') {
+      return HttpResponse.json(
+        { detail: 'Rate limit exceeded' },
+        { status: 429, headers: { 'Retry-After': '30' } },
+      );
+    }
+
+    if (!body.master_password || body.master_password.length > 128) {
+      return HttpResponse.json(
+        { detail: 'Master password must be between 1 and 128 characters' },
+        { status: 422 },
+      );
+    }
 
     if (body.master_password === 'correct horse') {
       return HttpResponse.json<UnlockResponse>({
@@ -163,20 +224,32 @@ export const vaultHandlers = [
     if (!body.service || !body.username || !body.password) {
       return HttpResponse.json({ detail: 'Missing required fields' }, { status: 422 });
     }
+    if (body.service.length > 128 || body.username.length > 32 || body.password.length > 32) {
+      return HttpResponse.json({ detail: 'Field length exceeded' }, { status: 422 });
+    }
     return HttpResponse.json({ id: `ent-${Date.now().toString()}` }, { status: 201 });
   }),
 
   // PUT /api/vault/entries/:id
   http.put('/api/vault/entries/:id', async ({ params, request }) => {
+    if (params.id === 'nonexistent') {
+      return HttpResponse.json({ detail: 'Entry not found' }, { status: 404 });
+    }
     const body = (await request.json()) as UpdateEntryRequest;
     if (!body.service || !body.username || !body.password) {
       return HttpResponse.json({ detail: 'Missing required fields' }, { status: 422 });
+    }
+    if (body.service.length > 128 || body.username.length > 32 || body.password.length > 32) {
+      return HttpResponse.json({ detail: 'Field length exceeded' }, { status: 422 });
     }
     return HttpResponse.json({ id: params.id as string });
   }),
 
   // DELETE /api/vault/entries/:id
-  http.delete('/api/vault/entries/:id', () => {
+  http.delete('/api/vault/entries/:id', ({ params }) => {
+    if (params.id === 'nonexistent') {
+      return HttpResponse.json({ detail: 'Entry not found' }, { status: 404 });
+    }
     return new HttpResponse(null, { status: 204 });
   }),
 

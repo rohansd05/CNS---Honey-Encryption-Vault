@@ -24,7 +24,14 @@ import { ApiError } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { PasswordStrengthMeter } from '@/components/PasswordStrengthMeter';
 import { AuthIllustration } from './AuthIllustration';
@@ -41,19 +48,19 @@ const registerSchema = z
       .min(3, 'Username must be at least 3 characters')
       .max(32, 'Username cannot exceed 32 characters')
       .regex(
-        /^[a-z0-9_.-]+$/,
-        'Username must use lowercase letters, numbers, dots, hyphens, or underscores',
+        /^[A-Za-z0-9_.-]+$/,
+        'Username must use letters, numbers, dots, hyphens, or underscores',
       ),
     login_password: z
       .string()
-      .min(6, 'Login password must be at least 6 characters')
-      .max(32, 'Login password cannot exceed 32 characters')
+      .min(8, 'Login password must be at least 8 characters')
+      .max(128, 'Login password cannot exceed 128 characters')
       .regex(/^[\x20-\x7E]+$/, 'Password must contain only printable ASCII characters'),
     confirm_login_password: z.string().min(1, 'Please confirm your login password'),
     master_password: z
       .string()
       .min(8, 'Master password should be at least 8 characters')
-      .max(32, 'Master password cannot exceed 32 characters')
+      .max(128, 'Master password cannot exceed 128 characters')
       .regex(/^[\x20-\x7E]+$/, 'Password must contain only printable ASCII characters'),
     confirm_master_password: z.string().min(1, 'Please confirm your master password'),
   })
@@ -150,9 +157,30 @@ export function RegisterPage() {
       }
     } catch (err: unknown) {
       if (err instanceof ApiError) {
-        toast.error('Registration Failed', {
-          description: err.detail || 'Could not complete registration.',
-        });
+        if (err.status === 409) {
+          toast.error('Username Taken', {
+            description:
+              err.detail || 'This username is already registered. Please choose another.',
+          });
+        } else if (err.status === 429) {
+          const wait = err.retryAfter ? `${String(err.retryAfter)}s` : 'a moment';
+          toast.error('Too Many Attempts', {
+            description: `Rate limit exceeded. Please wait ${wait} before trying again.`,
+          });
+        } else if (err.status === 503) {
+          toast.error('Service Unavailable', {
+            description:
+              'Security service is temporarily unavailable. Registration cannot complete. Please try again later.',
+          });
+        } else if (err.status === 422) {
+          toast.error('Validation Error', {
+            description: err.detail || 'One or more fields are invalid.',
+          });
+        } else {
+          toast.error('Registration Failed', {
+            description: err.detail || 'Could not complete registration.',
+          });
+        }
       } else {
         toast.error('Registration Error', {
           description: 'Network error or server unreachable. Please try again.',
@@ -207,7 +235,10 @@ export function RegisterPage() {
               >
                 {/* Username */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="reg-username" className="text-xs font-medium text-[var(--text-secondary)]">
+                  <Label
+                    htmlFor="reg-username"
+                    className="text-xs font-medium text-[var(--text-secondary)]"
+                  >
                     Username
                   </Label>
                   <div className="relative">
@@ -236,7 +267,10 @@ export function RegisterPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <Label htmlFor="reg-login-pass" className="text-[11px] text-[var(--text-secondary)]">
+                      <Label
+                        htmlFor="reg-login-pass"
+                        className="text-[11px] text-[var(--text-secondary)]"
+                      >
                         Login Password
                       </Label>
                       <div className="relative">
@@ -258,7 +292,11 @@ export function RegisterPage() {
                           className="absolute right-2.5 top-2.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                           aria-label={showLoginPass ? 'Hide password' : 'Show password'}
                         >
-                          {showLoginPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                          {showLoginPass ? (
+                            <EyeOff className="h-3.5 w-3.5" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5" />
+                          )}
                         </button>
                       </div>
                       {errors.login_password && (
@@ -269,7 +307,10 @@ export function RegisterPage() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label htmlFor="reg-confirm-login" className="text-[11px] text-[var(--text-secondary)]">
+                      <Label
+                        htmlFor="reg-confirm-login"
+                        className="text-[11px] text-[var(--text-secondary)]"
+                      >
                         Confirm Login Password
                       </Label>
                       <Input
@@ -301,12 +342,17 @@ export function RegisterPage() {
                       <Shield className="h-3.5 w-3.5" />
                       <span>2. Vault Master Password (Encryption Key)</span>
                     </div>
-                    <span className="text-[11px] font-mono text-[var(--text-muted)]">Argon2id KDF</span>
+                    <span className="text-[11px] font-mono text-[var(--text-muted)]">
+                      Argon2id KDF
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <Label htmlFor="reg-master-pass" className="text-[11px] text-[var(--text-secondary)]">
+                      <Label
+                        htmlFor="reg-master-pass"
+                        className="text-[11px] text-[var(--text-secondary)]"
+                      >
                         Master Password
                       </Label>
                       <div className="relative">
@@ -328,7 +374,11 @@ export function RegisterPage() {
                           className="absolute right-2.5 top-2.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                           aria-label={showMasterPass ? 'Hide password' : 'Show password'}
                         >
-                          {showMasterPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                          {showMasterPass ? (
+                            <EyeOff className="h-3.5 w-3.5" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5" />
+                          )}
                         </button>
                       </div>
                       {errors.master_password && (
@@ -339,7 +389,10 @@ export function RegisterPage() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label htmlFor="reg-confirm-master" className="text-[11px] text-[var(--text-secondary)]">
+                      <Label
+                        htmlFor="reg-confirm-master"
+                        className="text-[11px] text-[var(--text-secondary)]"
+                      >
                         Confirm Master Password
                       </Label>
                       <Input

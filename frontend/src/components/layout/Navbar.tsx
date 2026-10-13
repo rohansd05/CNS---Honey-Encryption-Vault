@@ -246,7 +246,9 @@ export function Navbar() {
                         marginBottom: '0.25rem',
                       }}
                     >
-                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Signed in as</p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        Signed in as
+                      </p>
                       <p
                         style={{
                           fontSize: '0.875rem',
@@ -334,7 +336,14 @@ export function Navbar() {
               background: 'var(--bg-surface)',
             }}
           >
-            <div style={{ padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <div
+              style={{
+                padding: '1rem 1.5rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.25rem',
+              }}
+            >
               {navItems.map((item) => (
                 <NavLink
                   key={item.to}

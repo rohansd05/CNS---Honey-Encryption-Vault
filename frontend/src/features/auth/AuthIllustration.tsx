@@ -17,7 +17,13 @@ export function AuthIllustration({ mode }: AuthIllustrationProps) {
       <div className="absolute inset-0 opacity-15 pointer-events-none">
         <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <pattern id="hex-pattern" width="56" height="96" patternUnits="userSpaceOnUse" patternTransform="scale(1)">
+            <pattern
+              id="hex-pattern"
+              width="56"
+              height="96"
+              patternUnits="userSpaceOnUse"
+              patternTransform="scale(1)"
+            >
               <path
                 d="M28 0 L56 16 L56 48 L28 64 L0 48 L0 16 Z M28 48 L56 64 L56 96 L28 112 L0 96 L0 64 Z"
                 fill="none"
@@ -71,10 +77,14 @@ export function AuthIllustration({ mode }: AuthIllustrationProps) {
 
           <div className="flex items-center justify-between gap-4 p-3.5 rounded-lg bg-black/40 border border-white/5">
             <div className="flex items-center gap-3">
-              <span className="text-2xl select-none" role="img" aria-label="sigil-preview">🍯 🐝 🛡️</span>
+              <span className="text-2xl select-none" role="img" aria-label="sigil-preview">
+                🍯 🐝 🛡️
+              </span>
               <div>
                 <div className="text-xs font-semibold text-white">Your Unique Vault Sigil</div>
-                <div className="text-[11px] text-slate-400 font-mono">Recognize your 3-emoji key visual</div>
+                <div className="text-[11px] text-slate-400 font-mono">
+                  Recognize your 3-emoji key visual
+                </div>
               </div>
             </div>
             <div className="h-4 w-4 rounded-full bg-[#f5a524] ring-4 ring-amber-500/20" />
@@ -85,13 +95,17 @@ export function AuthIllustration({ mode }: AuthIllustrationProps) {
               <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium mb-1">
                 <KeyRound className="h-3 w-3" /> Right Master Key
               </div>
-              <p className="text-[11px] text-slate-300 font-mono">Authentic Passwords + Authentic Sigil</p>
+              <p className="text-[11px] text-slate-300 font-mono">
+                Authentic Passwords + Authentic Sigil
+              </p>
             </div>
             <div className="rounded-lg bg-slate-800/50 p-2.5 border border-white/5">
               <div className="flex items-center gap-1.5 text-[11px] text-amber-400 font-medium mb-1">
                 <Lock className="h-3 w-3" /> Wrong Master Key
               </div>
-              <p className="text-[11px] text-slate-300 font-mono">Plausible Decoy Vault + Changed Sigil</p>
+              <p className="text-[11px] text-slate-300 font-mono">
+                Plausible Decoy Vault + Changed Sigil
+              </p>
             </div>
           </div>
         </motion.div>

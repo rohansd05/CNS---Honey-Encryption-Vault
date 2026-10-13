@@ -7,18 +7,26 @@ export const authHandlers = [
   http.post('/api/auth/register', async ({ request }) => {
     const body = (await request.json()) as RegisterRequest;
 
+    if (body.username === 'ratelimited') {
+      return HttpResponse.json(
+        { detail: 'Rate limit exceeded' },
+        { status: 429, headers: { 'Retry-After': '30' } },
+      );
+    }
+
+    if (body.username === 'serviceunavailable') {
+      return HttpResponse.json({ detail: 'Honeychecker unavailable' }, { status: 503 });
+    }
+
     if (body.login_password === body.master_password) {
       return HttpResponse.json(
-        { detail: 'Login password and master password must be different.' },
+        { detail: 'Login password and master password must differ' },
         { status: 422 },
       );
     }
 
-    if (body.username === 'demo' || body.username === 'admin') {
-      return HttpResponse.json(
-        { detail: `Username '${body.username}' is already taken.` },
-        { status: 409 },
-      );
+    if (body.username === 'demo' || body.username === 'admin' || body.username === 'alice') {
+      return HttpResponse.json({ detail: 'Username already taken' }, { status: 409 });
     }
 
     return HttpResponse.json(
@@ -30,6 +38,17 @@ export const authHandlers = [
   // POST /api/auth/login
   http.post('/api/auth/login', async ({ request }) => {
     const body = (await request.json()) as LoginRequest;
+
+    if (body.username === 'ratelimited') {
+      return HttpResponse.json(
+        { detail: 'Rate limit exceeded' },
+        { status: 429, headers: { 'Retry-After': '30' } },
+      );
+    }
+
+    if (body.username === 'serviceunavailable') {
+      return HttpResponse.json({ detail: 'Service temporarily unavailable' }, { status: 503 });
+    }
 
     if (body.username === 'demo' && body.login_password === 'demo-login-pass') {
       return HttpResponse.json({
@@ -47,10 +66,7 @@ export const authHandlers = [
       });
     }
 
-    return HttpResponse.json(
-      { detail: 'Invalid credentials' },
-      { status: 401 },
-    );
+    return HttpResponse.json({ detail: 'Invalid credentials' }, { status: 401 });
   }),
 
   // GET /api/auth/me
