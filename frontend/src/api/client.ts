@@ -2,12 +2,17 @@
 // Base URL from VITE_API_BASE_URL env var; Bearer token injected automatically.
 
 export class ApiError extends Error {
+  /** Seconds to wait before retrying (from Retry-After header on 429) */
+  public readonly retryAfter: number | null;
+
   constructor(
     public readonly status: number,
     public readonly detail: string,
+    retryAfter?: number | null,
   ) {
     super(detail);
     this.name = 'ApiError';
+    this.retryAfter = retryAfter ?? null;
   }
 }
 
@@ -64,6 +69,14 @@ export async function apiFetch<T>(path: string, options: FetchOptions = {}): Pro
     window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
     const detail = await parseError(res);
     throw new ApiError(401, detail);
+  }
+
+  // 429 Rate limit — extract Retry-After header
+  if (res.status === 429) {
+    const retryAfterRaw = res.headers.get('Retry-After');
+    const retryAfter = retryAfterRaw ? parseInt(retryAfterRaw, 10) : null;
+    const detail = await parseError(res);
+    throw new ApiError(429, detail, Number.isNaN(retryAfter) ? null : retryAfter);
   }
 
   if (!res.ok) {

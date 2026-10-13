@@ -2,18 +2,40 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useCreateShare } from '@/api/hooks/useSharesQueries';
 import { usersApi } from '@/api/endpoints/users';
+import { ApiError } from '@/api/client';
 import { toast } from 'sonner';
 import type { VaultEntry, UserIdentityResponse } from '@/api/types';
 import { ShieldCheck } from 'lucide-react';
 
 const shareSchema = z.object({
-  recipient_username: z.string().min(3, 'Username required').max(32, 'Max 32 characters'),
+  recipient_username: z
+    .string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(32, 'Username cannot exceed 32 characters')
+    .regex(
+      /^[A-Za-z0-9_.-]+$/,
+      'Username must use letters, numbers, dots, hyphens, or underscores',
+    ),
 });
 
 type ShareFormValues = z.infer<typeof shareSchema>;
@@ -30,7 +52,7 @@ export function ShareDialog({ open, onOpenChange, entry, masterPassword }: Share
   const [isFetchingIdentity, setIsFetchingIdentity] = useState(false);
   const [fingerprint, setFingerprint] = useState<string>('');
   const createShare = useCreateShare();
-  
+
   const form = useForm<ShareFormValues>({
     resolver: zodResolver(shareSchema),
     defaultValues: {
@@ -55,7 +77,10 @@ export function ShareDialog({ open, onOpenChange, entry, masterPassword }: Share
           const data = encoder.encode(identity.certificate_pem);
           const hashBuffer = await crypto.subtle.digest('SHA-256', data);
           const hashArray = Array.from(new Uint8Array(hashBuffer));
-          const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join(':').toUpperCase();
+          const hashHex = hashArray
+            .map((b) => b.toString(16).padStart(2, '0'))
+            .join(':')
+            .toUpperCase();
           setFingerprint(hashHex);
         } catch {
           setFingerprint('Unavailable');
@@ -65,19 +90,27 @@ export function ShareDialog({ open, onOpenChange, entry, masterPassword }: Share
   }, [identity]);
 
   const handleVerify = async () => {
+    const valid = await form.trigger('recipient_username');
+    if (!valid) return;
     const username = form.getValues('recipient_username');
-    if (!username) {
-      void form.trigger('recipient_username');
-      return;
-    }
-    
+
     setIsFetchingIdentity(true);
     setIdentity(null);
     try {
       const res = await usersApi.getIdentity(username);
       setIdentity(res);
     } catch (err: unknown) {
-      toast.error(((err as Record<string, unknown>).detail as string) || 'User not found');
+      if (err instanceof ApiError) {
+        if (err.status === 404) {
+          toast.error('Recipient Not Found', { description: `User '${username}' does not exist.` });
+        } else {
+          toast.error('Verification Error', {
+            description: err.detail || 'Failed to fetch user identity.',
+          });
+        }
+      } else {
+        toast.error('User verification failed', { description: 'Please check connection.' });
+      }
     } finally {
       setIsFetchingIdentity(false);
     }
@@ -85,20 +118,37 @@ export function ShareDialog({ open, onOpenChange, entry, masterPassword }: Share
 
   const onSubmit = () => {
     if (!identity) return;
-    
-    createShare.mutate({
-      master_password: masterPassword,
-      entry_id: entry.id,
-      recipient_username: identity.username
-    }, {
-      onSuccess: () => {
-        toast.success(`Shared with ${identity.username}`);
-        onOpenChange(false);
+
+    createShare.mutate(
+      {
+        master_password: masterPassword,
+        entry_id: entry.id,
+        recipient_username: identity.username,
       },
-      onError: (err: unknown) => {
-        toast.error(((err as Record<string, unknown>).detail as string) || 'Failed to share');
-      }
-    });
+      {
+        onSuccess: () => {
+          toast.success(`Entry shared securely with ${identity.username}`);
+          onOpenChange(false);
+        },
+        onError: (err: unknown) => {
+          if (err instanceof ApiError) {
+            if (err.status === 422) {
+              toast.error('Cannot Share', {
+                description: err.detail || 'Cannot share entry with yourself.',
+              });
+            } else if (err.status === 404) {
+              toast.error('Not Found', {
+                description: err.detail || 'Entry or recipient was not found.',
+              });
+            } else {
+              toast.error('Failed to Share', { description: err.detail });
+            }
+          } else {
+            toast.error('Failed to share entry');
+          }
+        },
+      },
+    );
   };
 
   return (
@@ -106,14 +156,18 @@ export function ShareDialog({ open, onOpenChange, entry, masterPassword }: Share
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Share Entry</DialogTitle>
-          <DialogDescription>
-            Sharing {entry.service} with another user.
-          </DialogDescription>
+          <DialogDescription>Sharing {entry.service} with another user.</DialogDescription>
         </DialogHeader>
-        
+
         {!identity ? (
           <Form {...form}>
-            <form onSubmit={(e) => { e.preventDefault(); void handleVerify(); }} className="space-y-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleVerify();
+              }}
+              className="space-y-4"
+            >
               <FormField
                 control={form.control}
                 name="recipient_username"
@@ -128,7 +182,15 @@ export function ShareDialog({ open, onOpenChange, entry, masterPassword }: Share
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => { onOpenChange(false); }}>Cancel</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    onOpenChange(false);
+                  }}
+                >
+                  Cancel
+                </Button>
                 <Button type="submit" disabled={isFetchingIdentity}>
                   {isFetchingIdentity ? 'Finding User...' : 'Find User'}
                 </Button>
@@ -143,19 +205,43 @@ export function ShareDialog({ open, onOpenChange, entry, masterPassword }: Share
                 User Verified
               </div>
               <div className="text-sm space-y-1">
-                <p><span className="text-text-muted">Username:</span> {identity.username}</p>
-                <p><span className="text-text-muted">Subject:</span> CN={identity.username}</p>
-                <p><span className="text-text-muted">Issuer:</span> CN=HoneyVault Issuing CA</p>
-                <p className="font-mono text-[10px] break-all"><span className="text-text-muted font-sans text-sm block md:inline">Fingerprint (SHA-256):</span> {fingerprint}</p>
+                <p>
+                  <span className="text-text-muted">Username:</span> {identity.username}
+                </p>
+                <p>
+                  <span className="text-text-muted">Subject:</span> CN={identity.username}
+                </p>
+                <p>
+                  <span className="text-text-muted">Issuer:</span> CN=HoneyVault Issuing CA
+                </p>
+                <p className="font-mono text-[10px] break-all">
+                  <span className="text-text-muted font-sans text-sm block md:inline">
+                    Fingerprint (SHA-256):
+                  </span>{' '}
+                  {fingerprint}
+                </p>
                 <p className="text-xs text-warning mt-2 border-t border-border pt-2 font-medium">
                   Verify this fingerprint with your friend before confirming!
                 </p>
               </div>
             </div>
-            
+
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => { setIdentity(null); }}>Back</Button>
-              <Button onClick={() => { onSubmit(); }} disabled={createShare.isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIdentity(null);
+                }}
+              >
+                Back
+              </Button>
+              <Button
+                onClick={() => {
+                  onSubmit();
+                }}
+                disabled={createShare.isPending}
+              >
                 {createShare.isPending ? 'Sharing...' : 'Confirm & Share'}
               </Button>
             </DialogFooter>

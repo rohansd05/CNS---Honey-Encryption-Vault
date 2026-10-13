@@ -2,11 +2,25 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAddVaultEntry, useUpdateVaultEntry } from '@/api/hooks/useVaultQueries';
+import { ApiError } from '@/api/client';
 import { toast } from 'sonner';
 import { generatePassword } from '@/lib/password-generator';
 import { PasswordStrengthMeter } from '@/components/PasswordStrengthMeter';
@@ -14,9 +28,20 @@ import type { VaultEntry } from '@/api/types';
 import { RefreshCw } from 'lucide-react';
 
 const entrySchema = z.object({
-  service: z.string().min(1, 'Service is required').max(128, 'Max 128 characters'),
-  username: z.string().min(1, 'Username is required').max(32, 'Max 32 characters'),
-  password: z.string().min(1, 'Password is required').max(32, 'Max 32 characters'),
+  service: z
+    .string()
+    .min(1, 'Service name is required')
+    .max(128, 'Service name cannot exceed 128 characters'),
+  username: z
+    .string()
+    .min(1, 'Username is required')
+    .max(32, 'Username cannot exceed 32 characters')
+    .regex(/^[\x20-\x7E]+$/, 'Username must contain only printable ASCII characters'),
+  password: z
+    .string()
+    .min(1, 'Password is required')
+    .max(32, 'Password cannot exceed 32 characters')
+    .regex(/^[\x20-\x7E]+$/, 'Password must contain only printable ASCII characters'),
 });
 
 type EntryFormValues = z.infer<typeof entrySchema>;
@@ -29,11 +54,17 @@ interface EntryDialogProps {
   onSuccess: () => void;
 }
 
-export function EntryDialog({ open, onOpenChange, entry, masterPassword, onSuccess }: EntryDialogProps) {
+export function EntryDialog({
+  open,
+  onOpenChange,
+  entry,
+  masterPassword,
+  onSuccess,
+}: EntryDialogProps) {
   const addMutation = useAddVaultEntry();
   const updateMutation = useUpdateVaultEntry();
   const isEditing = !!entry;
-  
+
   const form = useForm<EntryFormValues>({
     resolver: zodResolver(entrySchema),
     defaultValues: {
@@ -55,29 +86,63 @@ export function EntryDialog({ open, onOpenChange, entry, masterPassword, onSucce
 
   const onSubmit = (values: EntryFormValues) => {
     if (isEditing) {
-      updateMutation.mutate({
-        id: entry.id,
-        data: { ...values, master_password: masterPassword }
-      }, {
-        onSuccess: () => {
-          toast.success('Entry updated');
-          onSuccess();
-          onOpenChange(false);
+      updateMutation.mutate(
+        {
+          id: entry.id,
+          data: { ...values, master_password: masterPassword },
         },
-        onError: (err: unknown) => { toast.error(((err as Record<string, unknown>).detail as string) || 'Failed to update entry'); }
-      });
+        {
+          onSuccess: () => {
+            toast.success('Entry updated');
+            onSuccess();
+            onOpenChange(false);
+          },
+          onError: (err: unknown) => {
+            if (err instanceof ApiError) {
+              if (err.status === 422) {
+                toast.error('Validation Error', {
+                  description: err.detail || 'One or more entry fields are invalid.',
+                });
+              } else if (err.status === 404) {
+                toast.error('Entry Not Found', {
+                  description: err.detail || 'This entry no longer exists.',
+                });
+              } else {
+                toast.error('Failed to update entry', { description: err.detail });
+              }
+            } else {
+              toast.error('Failed to update entry');
+            }
+          },
+        },
+      );
     } else {
-      addMutation.mutate({
-        ...values,
-        master_password: masterPassword
-      }, {
-        onSuccess: () => {
-          toast.success('Entry added');
-          onSuccess();
-          onOpenChange(false);
+      addMutation.mutate(
+        {
+          ...values,
+          master_password: masterPassword,
         },
-        onError: (err: unknown) => { toast.error(((err as Record<string, unknown>).detail as string) || 'Failed to add entry'); }
-      });
+        {
+          onSuccess: () => {
+            toast.success('Entry added');
+            onSuccess();
+            onOpenChange(false);
+          },
+          onError: (err: unknown) => {
+            if (err instanceof ApiError) {
+              if (err.status === 422) {
+                toast.error('Validation Error', {
+                  description: err.detail || 'One or more entry fields are invalid.',
+                });
+              } else {
+                toast.error('Failed to add entry', { description: err.detail });
+              }
+            } else {
+              toast.error('Failed to add entry');
+            }
+          },
+        },
+      );
     }
   };
 
@@ -87,7 +152,7 @@ export function EntryDialog({ open, onOpenChange, entry, masterPassword, onSucce
       uppercase: true,
       lowercase: true,
       numbers: true,
-      symbols: true
+      symbols: true,
     });
     form.setValue('password', pw, { shouldValidate: true });
   };
@@ -98,17 +163,27 @@ export function EntryDialog({ open, onOpenChange, entry, masterPassword, onSucce
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Entry' : 'Add Entry'}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit Vault Entry' : 'Add Vault Entry'}</DialogTitle>
+          <DialogDescription>
+            {isEditing
+              ? 'Update your encrypted credentials.'
+              : 'Add new encrypted credentials to your vault.'}
+          </DialogDescription>
         </DialogHeader>
-        
+
         <Form {...form}>
-          <form onSubmit={(e) => { void form.handleSubmit(onSubmit)(e); }} className="space-y-4">
+          <form
+            onSubmit={(e) => {
+              void form.handleSubmit(onSubmit)(e);
+            }}
+            className="space-y-4"
+          >
             <FormField
               control={form.control}
               name="service"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Service</FormLabel>
+                  <FormLabel>Service / Website</FormLabel>
                   <FormControl>
                     <Input placeholder="github.com" {...field} disabled={isPending} />
                   </FormControl>
@@ -116,7 +191,7 @@ export function EntryDialog({ open, onOpenChange, entry, masterPassword, onSucce
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="username"
@@ -130,7 +205,7 @@ export function EntryDialog({ open, onOpenChange, entry, masterPassword, onSucce
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="password"
@@ -139,9 +214,19 @@ export function EntryDialog({ open, onOpenChange, entry, masterPassword, onSucce
                   <FormLabel>Password</FormLabel>
                   <div className="flex gap-2">
                     <FormControl>
-                      <Input type="text" {...field} disabled={isPending} />
+                      <Input type="text" {...field} disabled={isPending} className="font-mono" />
                     </FormControl>
-                    <Button type="button" variant="outline" size="icon" onClick={() => { handleGeneratePassword(); }} disabled={isPending} title="Generate Password">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        handleGeneratePassword();
+                      }}
+                      disabled={isPending}
+                      aria-label="Generate strong password"
+                      title="Generate strong password"
+                    >
                       <RefreshCw size={16} />
                     </Button>
                   </div>
@@ -150,9 +235,16 @@ export function EntryDialog({ open, onOpenChange, entry, masterPassword, onSucce
                 </FormItem>
               )}
             />
-            
+
             <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => { onOpenChange(false); }} disabled={isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  onOpenChange(false);
+                }}
+                disabled={isPending}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>

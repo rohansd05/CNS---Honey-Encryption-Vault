@@ -6,12 +6,37 @@ import { Mail, Clock, LockOpen } from 'lucide-react';
 import type { ShareInboxItem } from '@/api/types';
 
 export function ShareInbox() {
-  const { data: inboxItems = [], isLoading, error } = useShareInbox();
+  const { data: inboxItems = [], isLoading, error, refetch } = useShareInbox();
   const [selectedShare, setSelectedShare] = useState<ShareInboxItem | null>(null);
-  
-  if (isLoading) return <div className="p-8 text-center text-text-muted">Loading inbox...</div>;
-  if (error) return <div className="p-8 text-center text-danger">Failed to load inbox</div>;
-  
+
+  if (isLoading) {
+    return (
+      <div className="p-12 text-center text-text-muted bg-bg-surface rounded-xl border border-border">
+        <div className="flex justify-center items-center gap-2">
+          <Clock className="animate-spin text-accent" size={20} />
+          <span>Loading secure inbox...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 text-center bg-danger/10 border border-danger/20 rounded-xl space-y-3">
+        <p className="text-danger font-medium">Failed to load shared entries.</p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            void refetch();
+          }}
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {inboxItems.length === 0 ? (
@@ -21,8 +46,11 @@ export function ShareInbox() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {inboxItems.map(item => (
-            <div key={item.share_id} className={`p-5 rounded-xl border ${item.opened_at ? 'border-border bg-bg-surface' : 'border-accent/30 bg-accent/5'} flex flex-col`}>
+          {inboxItems.map((item) => (
+            <div
+              key={item.share_id}
+              className={`p-5 rounded-xl border ${item.opened_at ? 'border-border bg-bg-surface' : 'border-accent/30 bg-accent/5'} flex flex-col`}
+            >
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/20 text-accent font-bold">
@@ -33,15 +61,23 @@ export function ShareInbox() {
                     <p className="text-xs text-text-muted">from {item.sender}</p>
                   </div>
                 </div>
-                {!item.opened_at && <span className="flex h-3 w-3 rounded-full bg-accent shrink-0"></span>}
+                {!item.opened_at && (
+                  <span className="flex h-3 w-3 rounded-full bg-accent shrink-0"></span>
+                )}
               </div>
-              
+
               <div className="flex items-center gap-2 text-xs text-text-muted mb-4 mt-auto">
                 <Clock size={14} />
                 <span>{new Date(item.created_at).toLocaleDateString()}</span>
               </div>
-              
-              <Button onClick={() => { setSelectedShare(item); }} variant={item.opened_at ? 'outline' : 'default'} className="w-full gap-2">
+
+              <Button
+                onClick={() => {
+                  setSelectedShare(item);
+                }}
+                variant={item.opened_at ? 'outline' : 'default'}
+                className="w-full gap-2"
+              >
                 <LockOpen size={16} />
                 {item.opened_at ? 'View Again' : 'Open Share'}
               </Button>
@@ -49,12 +85,14 @@ export function ShareInbox() {
           ))}
         </div>
       )}
-      
+
       {selectedShare && (
-        <OpenShareDialog 
-          share={selectedShare} 
-          open={!!selectedShare} 
-          onOpenChange={(open) => { if (!open) setSelectedShare(null); }} 
+        <OpenShareDialog
+          share={selectedShare}
+          open={!!selectedShare}
+          onOpenChange={(open) => {
+            if (!open) setSelectedShare(null);
+          }}
         />
       )}
     </div>
