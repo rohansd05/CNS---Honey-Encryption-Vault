@@ -81,6 +81,7 @@ def test_admin_alerts_success_for_admin(
     assert item["user_agent"] == "AttackBot/2.0"
     assert item["severity"] == "critical"
     assert item["kind"] == "HONEYWORD_LOGIN"
+    assert item["created_at"].endswith("Z") or "+00:00" in item["created_at"]
 
     # Test limit query param
     lim_resp = client.get("/api/admin/alerts?limit=1", headers=headers)

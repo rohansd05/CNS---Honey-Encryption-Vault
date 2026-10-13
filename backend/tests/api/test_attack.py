@@ -130,6 +130,9 @@ def test_stolen_vault_shape(
     assert honey_blob["format"] == "honeyvault"
     assert "entries" in honey_blob
     assert len(honey_blob["entries"]) == 8
+    first_entry = honey_blob["entries"][0]
+    assert first_entry["created_at"].endswith("Z") or "+00:00" in first_entry["created_at"]
+    assert first_entry["updated_at"].endswith("Z") or "+00:00" in first_entry["updated_at"]
 
     baseline_blob = data["baseline_blob"]
     assert "entries" in baseline_blob or "ciphertext" in baseline_blob or "kdf" in baseline_blob
@@ -151,6 +154,9 @@ def test_dictionary_attack_max_guesses_50(
     assert baseline["guess_index"] is not None
     assert 1 <= baseline["guess_index"] <= 50
     assert len(baseline["recovered_entries"]) == 8
+    first_rec = baseline["recovered_entries"][0]
+    assert first_rec["created_at"].endswith("Z") or "+00:00" in first_rec["created_at"]
+    assert first_rec["updated_at"].endswith("Z") or "+00:00" in first_rec["updated_at"]
     assert baseline["elapsed_ms"] >= 0
 
     # Honey encryption result
@@ -258,3 +264,4 @@ def test_decoy_sweetword_login_shows_alert_in_alarms(
     assert recent["kind"] == "HONEYWORD_LOGIN"
     assert recent["severity"] == "critical"
     assert recent["sweetword_index"] == decoy_idx
+    assert recent["created_at"].endswith("Z") or "+00:00" in recent["created_at"]
