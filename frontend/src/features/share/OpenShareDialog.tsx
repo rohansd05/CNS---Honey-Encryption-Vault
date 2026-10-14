@@ -7,10 +7,11 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useOpenShare } from '@/api/hooks/useSharesQueries';
+import { useOpenShare, useTamperShare } from '@/api/hooks/useSharesQueries';
 import { copyToClipboard } from '@/lib/clipboard';
-import { Copy, ShieldCheck, ShieldAlert, Info, Loader2 } from 'lucide-react';
+import { Copy, ShieldCheck, ShieldAlert, Info, Loader2, Flame } from 'lucide-react';
 import { useEffect } from 'react';
+import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { ShareInboxItem } from '@/api/types';
 
@@ -22,6 +23,7 @@ interface OpenShareDialogProps {
 
 export function OpenShareDialog({ share, open, onOpenChange }: OpenShareDialogProps) {
   const openShare = useOpenShare();
+  const tamperShare = useTamperShare();
 
   useEffect(() => {
     if (open) {
@@ -30,9 +32,24 @@ export function OpenShareDialog({ share, open, onOpenChange }: OpenShareDialogPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, share.share_id]);
 
+  const handleTamper = () => {
+    tamperShare.mutate(share.share_id, {
+      onSuccess: () => {
+        toast.warning('Share envelope tampered', {
+          description: 'Flipped 1 ciphertext byte in the stored envelope.',
+        });
+        openShare.mutate(share.share_id);
+      },
+      onError: () => {
+        toast.error('Failed to tamper share envelope');
+      },
+    });
+  };
+
   const data = openShare.data;
   const isPending = openShare.isPending;
   const isError = openShare.isError;
+
   const error = openShare.error as { detail?: string } | null;
 
   return (
@@ -158,7 +175,23 @@ export function OpenShareDialog({ share, open, onOpenChange }: OpenShareDialogPr
               </div>
             )}
 
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
+              {data.signature_valid ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleTamper}
+                  disabled={tamperShare.isPending}
+                  className="text-xs text-danger border-danger/30 hover:bg-danger/10 hover:text-danger gap-1.5"
+                  title="Simulate attacker flipping a ciphertext byte in transit"
+                >
+                  <Flame size={14} className={tamperShare.isPending ? 'animate-spin' : ''} />
+                  {tamperShare.isPending ? 'Tampering...' : 'Tamper Envelope (Demo)'}
+                </Button>
+              ) : (
+                <div />
+              )}
               <Button
                 variant="outline"
                 onClick={() => {
