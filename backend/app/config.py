@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     jwt_secret: SecretStr = SecretStr("")
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
-    honeycore_impl: Literal["stub", "real"] = "stub"
+    honeycore_impl: Literal["stub", "real"] = "real"
     vault_kdf_profile: KDFProfileName = "default"
     honeywords_k: int = 10
     honeywords_kdf_profile: KDFProfileName = "server_lite"
