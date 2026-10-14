@@ -149,7 +149,7 @@ export function LoginPage() {
                     size="sm"
                     className="h-7 text-xs font-mono border-[var(--border)] hover:bg-[var(--bg-hover)]"
                     onClick={() => {
-                      fillCredentials('demo', 'demo-login-pass');
+                      fillCredentials('demo', 'demologin');
                     }}
                   >
                     User: demo
@@ -160,7 +160,18 @@ export function LoginPage() {
                     size="sm"
                     className="h-7 text-xs font-mono border-[var(--border)] hover:bg-[var(--bg-hover)]"
                     onClick={() => {
-                      fillCredentials('admin', 'admin-pass');
+                      fillCredentials('bob', 'boblogin');
+                    }}
+                  >
+                    User: bob
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs font-mono border-[var(--border)] hover:bg-[var(--bg-hover)]"
+                    onClick={() => {
+                      fillCredentials('admin', 'adminlogin');
                     }}
                   >
                     Admin: admin

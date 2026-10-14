@@ -22,4 +22,10 @@ export const sharesApi = {
     apiFetch<OpenShareResponse>(`/shares/${id}/open`, {
       method: 'POST',
     }),
+
+  tamperShare: (id: string) =>
+    apiFetch<{ tampered: boolean }>(`/shares/${id}/tamper`, {
+      method: 'POST',
+    }),
 };
+

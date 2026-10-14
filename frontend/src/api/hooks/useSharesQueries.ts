@@ -35,3 +35,14 @@ export function useOpenShare() {
     },
   });
 }
+
+export function useTamperShare() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (shareId: string) => sharesApi.tamperShare(shareId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['shares'] });
+    },
+  });
+}
+
