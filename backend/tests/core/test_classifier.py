@@ -14,7 +14,7 @@ import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from eval.classifier import CV_FOLDS, FEATURE_NAMES, features, folds, run
+from eval.classifier import CV_FOLDS, FEATURE_NAMES, features, folds, run, strip_known_domain
 from honeycore.dte.password_dte import PCFGPasswordModel
 from honeycore.dte.pcfg import train_password_model
 
@@ -143,6 +143,46 @@ def test_run_detects_distinguishable_decoys(tmp_path) -> None:
     # One decoy string cannot fill 5 grouped folds: both extra protocols are skipped, not NaN.
     assert "skipped" in report["grouped"] and "skipped" in report["distinct"]
     assert report["distinct"]["distinct_decoy"] == 1
+
+
+def test_strip_known_domain_strips_only_known_domains() -> None:
+    known = {"gmail.com", "yahoo.com"}
+    assert strip_known_domain("john@gmail.com", known) == "john"
+    assert strip_known_domain("a.b_c@yahoo.com", known) == "a.b_c"
+    assert strip_known_domain("john@corp.example", known) == "john@corp.example"  # unknown
+    assert strip_known_domain("john", known) == "john"  # bare username
+    assert strip_known_domain("a@b@gmail.com", known) == "a@b@gmail.com"  # two @: not an email
+    assert strip_known_domain("john@GMAIL.COM", known) == "john@GMAIL.COM"  # exact match only
+
+
+class _EmailDecoyModel:
+    """Decoys = training words, every other one with ``@gmail.com`` appended."""
+
+    def __init__(self) -> None:
+        self._i = 0
+
+    def sample(self) -> str:
+        self._i += 1
+        word = _TRAIN_WORDS[self._i % len(_TRAIN_WORDS)]
+        return f"{word}@gmail.com" if self._i % 2 else word
+
+
+def test_run_transform_applies_to_both_classes(tmp_path) -> None:
+    heldout = _write_heldout(tmp_path, [*_TRAIN_WORDS, "mate@gmail.com"])
+    plain = run(_EmailDecoyModel(), heldout, n=200, seed=7)
+    assert "transformed" not in plain
+    stripped = run(
+        _EmailDecoyModel(),
+        heldout,
+        n=200,
+        seed=7,
+        transform=lambda v: strip_known_domain(v, {"gmail.com"}),
+    )
+    assert stripped["transformed"]["decoy"] == 100  # every other decoy carried the suffix
+    assert 0 < stripped["transformed"]["real"] < 200  # only the one real email was stripped
+    for block in (stripped, stripped["grouped"], stripped["distinct"]):
+        for key in ("logreg", "random_forest"):
+            assert 0.0 <= block[key]["accuracy_mean"] <= 1.0
 
 
 _MODEL = _tiny_model()
