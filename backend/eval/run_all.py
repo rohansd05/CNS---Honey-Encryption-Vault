@@ -8,10 +8,13 @@ Owner: T1 -- Dhruv. Phase 2.
   entries, plus ``decode`` totality on uniformly random seeds (PROJECT-BRIEF.md §11).
 * ``chi_squared`` -- :func:`eval.chi_squared.run` (seed uniformity + template goodness of fit).
 * ``classifier`` -- :func:`eval.classifier.run` (LR + RF distinguisher, real vs decoy), with
-  with-replacement, grouped-by-string and distinct-strings-only CV.
+  with-replacement, grouped-by-string and distinct-strings-only CV; usernames also run
+  ``without_domain`` (known email domains stripped from real and decoy values).
 * ``attack`` -- :mod:`attack.simulator` on a fresh ``demo``-profile honey vault and a conventional
   vault holding the same 8 synthetic entries, demo wordlist, 500 guesses.
 * ``kdf`` -- Argon2id derive time and 8-entry unlock time for every KDF profile.
+* ``timing`` -- 8-entry unlock latency with the right vs a wrong master password per KDF
+  profile, plus a two-sample Kolmogorov-Smirnov test (AGENTS.md §1.2: no timing difference).
 * ``meta`` -- commit, timestamp, model ids, dataset note, run configuration.
 
 The file also carries the keys the frontend Evaluation page reads (``timestamp``, ``version``,
@@ -44,6 +47,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from scipy import stats
 from sklearn.model_selection import StratifiedKFold, cross_validate
 
 from attack import simulator
@@ -92,10 +96,11 @@ class RunConfig:
     template_n: int
     attack_guesses: int
     kdf_reps: int
+    timing_n: int
 
 
-FULL = RunConfig(10000, 10000, 5000, 20000, 20000, 10000, 20000, 500, 15)
-QUICK = RunConfig(200, 200, 100, 300, 300, 200, 300, 20, 1)
+FULL = RunConfig(10000, 10000, 5000, 20000, 20000, 10000, 20000, 500, 15, 200)
+QUICK = RunConfig(200, 200, 100, 300, 300, 200, 300, 20, 1, 20)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -454,7 +459,21 @@ def run_classifier(
         "password": classifier.run(core.password_model, heldout_passwords, n=n, seed=seed)
     }
     if heldout_usernames.exists():
-        raw["username"] = classifier.run(core.username_model, heldout_usernames, n=n, seed=seed)
+        um = core.username_model
+        raw["username"] = classifier.run(um, heldout_usernames, n=n, seed=seed)
+        domains = um._domain_set  # the model's own email-domain table (§7.4)
+        without = classifier.run(
+            um,
+            heldout_usernames,
+            n=n,
+            seed=seed,
+            transform=lambda v: classifier.strip_known_domain(v, domains),
+        )
+        without["note"] = (
+            "known email domains (the username model's table) stripped from real and decoy "
+            "values before features; same real sample, fresh decoys"
+        )
+        raw["username"]["without_domain"] = without
     else:
         raw["username"] = {"skipped": "no held-out usernames file"}
 
@@ -596,6 +615,67 @@ def run_kdf(core: Core, reps: int) -> dict[str, Any]:
     return out
 
 
+def run_timing(core: Core, n: int) -> dict[str, Any]:
+    """In-process 8-entry ``HoneyVault.unlock`` latency, right vs wrong master password.
+
+    Per KDF profile: a fresh vault, one warm-up unlock, then ``n`` rounds of a right, a wrong
+    and a second right ("control") unlock, order reversed every other round so drift hits all
+    samples alike. Each wrong guess is a fresh random password of the same length. A two-sample
+    Kolmogorov-Smirnov test asks whether right and wrong share one distribution (p > alpha: no
+    detectable difference); the right-vs-control test is the A/A false-alarm check.
+    ``decode_only_us`` times the entry DTE alone on the 8 real seeds vs 8 random seeds, which
+    isolates the value-dependent decode cost. The passwords never leave this function.
+    """
+    profiles: dict[str, Any] = {}
+    for name in KDF_PROFILES:
+        master = secrets.token_urlsafe(12)
+        vault = core.vault_cls.new(name)
+        _fill(vault, master)
+        vault.unlock(master)  # warm-up: first-call allocations and model caches
+        right: list[float] = []
+        wrong: list[float] = []
+        control: list[float] = []
+        for i in range(n):
+            trio = [(right, master), (wrong, secrets.token_urlsafe(12)), (control, master)]
+            for bucket, password in trio if i % 2 == 0 else trio[::-1]:
+                bucket.append(_timed_ms(lambda v=vault, p=password: v.unlock(p)))
+        ks = stats.ks_2samp(right, wrong)
+        profiles[name] = {
+            "right_ms": _ms_stats(right),
+            "wrong_ms": _ms_stats(wrong),
+            "ks_statistic": float(ks.statistic),
+            "ks_p_value": float(ks.pvalue),
+            "same_distribution": bool(ks.pvalue > chi_squared.ALPHA),
+            "control_ks_p_value": float(stats.ks_2samp(right, control).pvalue),
+        }
+
+    dte = core.entry_dte
+    real_seeds = [dte.encode(e.username, e.password) for e in SAMPLE_ENTRIES]
+    real_us: list[float] = []
+    random_us: list[float] = []
+    for i in range(n * 10):
+        random_seeds = [secrets.token_bytes(ENTRY_SEED_LEN) for _ in SAMPLE_ENTRIES]
+        pair = [(real_us, real_seeds), (random_us, random_seeds)]
+        for bucket, seeds in pair if i % 2 == 0 else pair[::-1]:
+            bucket.append(1000 * _timed_ms(lambda s=seeds: [dte.decode(x) for x in s]))
+    return {
+        "n_per_class": n,
+        "entries": len(SAMPLE_ENTRIES),
+        "alpha": chi_squared.ALPHA,
+        "method": (
+            "in-process HoneyVault.unlock, right vs fresh wrong master password (plus a second "
+            "right sample as A/A control), interleaved; two-sample Kolmogorov-Smirnov test"
+        ),
+        "profiles": profiles,
+        "decode_only_us": {
+            "rounds": n * 10,
+            "real_seeds": _ms_stats(real_us),
+            "random_seeds": _ms_stats(random_us),
+            "ks_p_value": float(stats.ks_2samp(real_us, random_us).pvalue),
+        },
+    }
+
+
 def _profile_label(name: str) -> str:
     p = KDF_PROFILES[name]
     return f"{name} (t={p.time_cost}, m={p.memory_cost_kib // 1024} MiB, p={p.parallelism})"
@@ -678,6 +758,7 @@ def build_results(
     )
     attack = step("attack", lambda: run_attack(core, cfg.attack_guesses))
     kdf = step("kdf", lambda: run_kdf(core, cfg.kdf_reps))
+    timing = step("timing", lambda: run_timing(core, cfg.timing_n))
 
     vault_profile = os.environ.get("VAULT_KDF_PROFILE", "default")
     if vault_profile not in KDF_PROFILES:
@@ -708,6 +789,7 @@ def build_results(
         "template_frequencies": templates,
         "attack": attack,
         "kdf": kdf,
+        "timing": timing,
         "performance": {
             "unlock_p50_ms": kdf[vault_profile]["unlock_ms"]["p50"],
             "unlock_p95_ms": kdf[vault_profile]["unlock_ms"]["p95"],
@@ -751,6 +833,21 @@ def _headline(r: dict[str, Any]) -> str:
     chi = r["chi_squared"]
     d = r["distinguisher"]
     a = r["attack"]
+    un = r["classifier"]["username"]
+    extra = [
+        f"{label} distinguisher best acc="
+        f"{max(block[k]['accuracy_mean'] for k in ('logreg', 'random_forest')):.3f}"
+        for label, block in (
+            ("username", un),
+            ("username without_domain", un.get("without_domain")),
+        )
+        if block and "skipped" not in block
+    ]
+    extra += [
+        f"timing {k}: right p50 {t['right_ms']['p50']} / wrong p50 {t['wrong_ms']['p50']} ms, "
+        f"KS p={t['ks_p_value']:.3g} (A/A control p={t['control_ks_p_value']:.3g})"
+        for k, t in r["timing"]["profiles"].items()
+    ]
     return "\n".join(
         [
             f"round-trip {r['round_trip']['success_rate']:.4f} "
@@ -770,6 +867,7 @@ def _headline(r: dict[str, Any]) -> str:
             f"{a['honey']['distinct_vaults']}/{a['honey']['guesses_tried']}",
             f"unlock p95 {r['performance']['unlock_p95_ms']} ms "
             f"[{r['performance']['argon2_kdf_profile']}]",
+            *extra,
         ]
     )
 

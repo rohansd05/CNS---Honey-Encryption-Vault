@@ -127,6 +127,35 @@ def test_quick_attack_and_kdf(quick_results: dict[str, Any]) -> None:
     assert set(quick_results["kdf"]) == {"default", "server_lite", "demo"}
 
 
+def test_quick_writes_old_and_new_keys(quick_results: dict[str, Any]) -> None:
+    # Old keys (the frontend reads them) stay; the v3 keys sit beside them.
+    assert TASK_KEYS | PAGE_KEYS | {"timing"} <= set(quick_results)
+    un = quick_results["classifier"]["username"]
+    assert {"grouped", "distinct", "without_domain"} | CLASSIFIERS <= set(un)
+    wd = un["without_domain"]
+    assert {"n", "grouped", "distinct", "transformed", "note"} | CLASSIFIERS <= set(wd)
+    assert CLASSIFIERS <= set(wd["grouped"]) and CLASSIFIERS <= set(wd["distinct"])
+    # The synthetic held-out usernames are model samples, so both classes carry domains.
+    assert wd["transformed"]["real"] > 0 and wd["transformed"]["decoy"] > 0
+    assert quick_results["meta"]["config"]["timing_n"] == run_all.QUICK.timing_n
+
+
+def test_quick_timing_block(quick_results: dict[str, Any]) -> None:
+    timing = quick_results["timing"]
+    assert timing["n_per_class"] == run_all.QUICK.timing_n
+    assert set(timing["profiles"]) == {"default", "server_lite", "demo"}
+    for t in timing["profiles"].values():
+        assert 0.0 <= t["ks_p_value"] <= 1.0
+        assert 0.0 <= t["control_ks_p_value"] <= 1.0
+        assert 0.0 <= t["ks_statistic"] <= 1.0
+        assert t["same_distribution"] == (t["ks_p_value"] > timing["alpha"])
+        for side in ("right_ms", "wrong_ms"):
+            assert 0.0 < t[side]["p50"] <= t[side]["p95"]
+    decode = timing["decode_only_us"]
+    assert 0.0 <= decode["ks_p_value"] <= 1.0
+    assert decode["real_seeds"]["p50"] > 0.0 and decode["random_seeds"]["p50"] > 0.0
+
+
 def test_results_carry_no_plaintext_or_guesses(quick_results: dict[str, Any]) -> None:
     text = json.dumps(quick_results)
     assert "demo-" not in text  # the per-run attack master password prefix
