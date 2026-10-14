@@ -267,32 +267,104 @@ Verify that all essential checks PASS and unreleased endpoints show SKIP.
 
 ---
 
-## 7. "Warm Up Before Demo" Checklist
+## 7. Staging Environment
 
-Render free-tier instances sleep after 15 minutes of inactivity and Neon databases scale down to zero compute. Cold starts can take 30–60 seconds on initial load.
+| Component | URL |
+|---|---|
+| **Frontend** | <https://honeyvault-three.vercel.app> |
+| **API** | <https://honeyvault-api.onrender.com> |
+| **Honeychecker** | Render Docker web service — separate Neon role `honeychecker` and database `honeychecker` |
 
-### Pre-Demo Warmup Protocol (Execute 5–10 minutes before presenting):
+> [!NOTE]
+> Render free-tier instances sleep after 15 minutes of inactivity; Neon databases scale to zero compute after 5 minutes of idle. Cold starts take 30–60 s on the first request.
 
-1. **Ping Honeychecker Health Endpoint:**
+---
+
+## 8. Pre-Demo Warm-Up (run 2 minutes before presenting)
+
+> [!IMPORTANT]
+> **Do not run 24/7 uptime pingers.** Render free tier provides 750 instance-hours/month. Constant pinging wastes the allocation and defeats the purpose of the free tier — it also re-introduces the "which password wakes the server faster" timing side-channel we deliberately avoid.
+
+Open both health URLs in a browser tab **2 minutes before** the demo:
+
+1. **Honeychecker health** — open in browser or run:
    ```bash
-   curl -i https://honeyvault-honeychecker.onrender.com/hc/health
+   curl -i https://honeyvault-api.onrender.com/hc/health
    ```
-   *Expected response:* HTTP 200 `{"status":"ok","service":"honeychecker","version":"...","db":"ok"}`
+   Expected: `HTTP 200` `{"status":"ok","service":"honeychecker","db":"ok",...}`
 
-2. **Ping API Health Endpoint:**
+2. **API health** — open in browser or run:
    ```bash
    curl -i https://honeyvault-api.onrender.com/api/health
    ```
-   *Expected response:* HTTP 200 `{"status":"ok","version":"...","honeycore_impl":"...","honeychecker":"ok"}`  
-   *Note:* Ensure `"honeychecker": "ok"` in the response. If `"down"`, wait 10 seconds for the honeychecker container to finish starting.
+   Expected: `HTTP 200` `{"status":"ok","honeycore_impl":"...","honeychecker":"ok",...}`
+   If `"honeychecker":"down"`, wait 10 s and retry — the HC container may still be starting.
 
-3. **Ping Frontend Web App:**
+3. **Optional full smoke test** (from `backend/`):
    ```bash
-   curl -i https://honeyvault.vercel.app/
+   python -m scripts.smoke_test \
+     --api https://honeyvault-api.onrender.com \
+     --frontend https://honeyvault-three.vercel.app
    ```
-   *Expected response:* HTTP 200 (HTML document delivered via Vercel Edge CDN).
 
-4. **Verify Smoke Test Output:**
-   ```bash
-   python -m scripts.smoke_test --api https://honeyvault-api.onrender.com --frontend https://honeyvault.vercel.app
-   ```
+---
+
+## 9. Reset Staging Demo Data
+
+Use this recipe when the demo account data is stale or corrupted and you need a clean reseed **without reprovisioning the Neon databases**.
+
+> [!WARNING]
+> This permanently deletes all staging user accounts, vault entries, and honeyword indices. Only run on staging. Never on production.
+
+### Step 1 — Truncate API database tables
+
+Connect to the **`honeyvault` Neon database** (API) and run in order (foreign keys cascade):
+
+```sql
+-- Truncate in dependency order (child → parent)
+TRUNCATE TABLE demo_artifacts  CASCADE;
+TRUNCATE TABLE alerts          CASCADE;
+TRUNCATE TABLE shares          CASCADE;
+TRUNCATE TABLE vaults          CASCADE;
+TRUNCATE TABLE users           CASCADE;
+```
+
+### Step 2 — Truncate Honeychecker database tables
+
+Connect to the **`honeychecker` Neon database** (separate role) and run:
+
+```sql
+TRUNCATE TABLE alarms       CASCADE;
+TRUNCATE TABLE user_indices CASCADE;
+```
+
+### Step 3 — Trigger reseed
+
+In the **Render Dashboard** for `honeyvault-api`:
+1. Go to **Manual Deploy** → **Deploy latest commit**.
+2. The container CMD runs `python -m scripts.seed_demo --if-missing` because `DEMO_MODE=true`.
+3. Wait for the deploy health check to pass (`/api/health` returns `"status":"ok"`).
+4. Verify with the smoke test (Step 3 above).
+
+> [!NOTE]
+> The `--if-missing` flag means seeding is a no-op if the demo account already exists. The truncation in Steps 1–2 ensures the account is absent so `seed_demo` re-creates it with fresh credentials.
+
+---
+
+## 10. Production Checklist
+
+> [!CAUTION]
+> **Reuse nothing from staging.** Production secrets, certificates, and database credentials must be generated independently. Staging is not a security boundary.
+
+Before promoting to production:
+
+- [ ] Generate a new `JWT_SECRET` (≥ 48 bytes URL-safe random).
+- [ ] Generate a new `KEY_WRAP_SECRET` (32 random bytes, Base64).
+- [ ] Generate a new `BOB_LOGIN_PASSWORD` and `BOB_MASTER_PASSWORD`.
+- [ ] Generate a new `ADMIN_LOGIN_PASSWORD`, `DEMO_LOGIN_PASSWORD`, `DEMO_MASTER_PASSWORD`.
+- [ ] Re-run `pki/` scripts to produce a fresh Root CA, Service CA, Issuing CA, server cert, and client cert — **do not reuse staging PKI**.
+- [ ] Provision a fresh Neon project with separate `honeyvault` and `honeychecker` databases and new roles/passwords.
+- [ ] Set `HONEYCORE_IMPL=real` and `APP_ENV=production`.
+- [ ] Update `ALLOWED_ORIGINS` to the production frontend domain only.
+- [ ] Confirm `DEMO_MODE=false` unless an attacker-console is explicitly required in production.
+- [ ] Run the full smoke test against the production endpoint before going live.
