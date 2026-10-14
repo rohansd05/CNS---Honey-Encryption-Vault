@@ -235,7 +235,7 @@ export function EvalExplainer() {
               <strong>Feature vector:</strong> 12 features including password length, character class segment counts, template log-probability under the grammar model, unigram character log-probability, and Shannon entropy.
             </li>
             <li>
-              <strong>Result analysis:</strong> Logistic regression demonstrates near-chance distinguishability (~0.50). Random Forest exceeds the ≤ 0.60 target due to duplicate strings across CV folds and heavy-tail frequency skew; on distinct strings, it falls to ~0.51. See <code className="font-mono text-accent">docs/eval-report.md §4.3</code> for detailed breakdown and protocol improvements.
+              <strong>Result analysis:</strong> Classifiers are evaluated across three protocols: with replacement (official), grouped by string, and distinct strings only. While Random Forest exceeds the ≤ 0.60 target under with-replacement sampling due to string repetition across cross-validation folds, removing duplicate strings in grouped and distinct protocols drops accuracy near chance. See <code className="font-mono text-accent">docs/eval-report.md §4.3</code> for detailed breakdown and protocol comparisons.
             </li>
           </ul>
         </AccordionItem>
