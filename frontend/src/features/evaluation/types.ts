@@ -86,6 +86,50 @@ export interface ClassifierScore {
   roc_auc_mean: number;
 }
 
+export interface ClassifierGroupedScore {
+  n?: number;
+  distinct_strings?: number;
+  logreg: ClassifierScore;
+  random_forest: ClassifierScore;
+}
+
+export interface ClassifierDistinctScore {
+  n?: number;
+  distinct_real?: number;
+  distinct_decoy?: number;
+  logreg: ClassifierScore;
+  random_forest: ClassifierScore;
+}
+
+export interface ClassifierWithoutDomain {
+  n: number;
+  logreg: ClassifierScore;
+  random_forest: ClassifierScore;
+  interpretation?: string;
+  transformed?: {
+    real: number;
+    decoy: number;
+  };
+  grouped?: ClassifierGroupedScore;
+  distinct?: ClassifierDistinctScore;
+  note?: string;
+}
+
+export interface FieldClassifierResult {
+  n: number;
+  logreg: ClassifierScore;
+  random_forest: ClassifierScore;
+  interpretation?: string;
+  grouped?: ClassifierGroupedScore;
+  distinct?: ClassifierDistinctScore;
+  without_domain?: ClassifierWithoutDomain;
+}
+
+export interface EvalClassifier {
+  password?: FieldClassifierResult;
+  username?: FieldClassifierResult;
+}
+
 export interface DistinguisherMetrics {
   accuracy: number;
   roc_auc: number;
@@ -94,13 +138,20 @@ export interface DistinguisherMetrics {
   baseline_chance: number;
 }
 
+export interface ClassifierPair {
+  logreg?: ClassifierScore;
+  random_forest?: ClassifierScore;
+  [key: string]: ClassifierScore | undefined;
+}
+
 export interface EvalDistinguisher {
   classifier: string;
   features: string[];
   metrics: DistinguisherMetrics;
   metrics_classifier?: string;
-  per_classifier?: Record<string, ClassifierScore>;
-  grouped_results?: Record<string, unknown>;
+  per_classifier?: ClassifierPair;
+  grouped_results?: ClassifierPair;
+  distinct_results?: ClassifierPair;
   target_accuracy: number;
   ideal_accuracy: number;
   conclusion?: string;
@@ -193,17 +244,58 @@ export interface EvalMeta {
   reproducibility?: string;
 }
 
+export interface TimingLatencyStats {
+  p50: number;
+  p95: number;
+  mean?: number;
+  min?: number;
+  max?: number;
+}
+
+export interface TimingProfileResult {
+  right_ms: TimingLatencyStats;
+  wrong_ms: TimingLatencyStats;
+  ks_statistic: number;
+  ks_p_value: number;
+  same_distribution: boolean;
+  control_ks_p_value?: number;
+}
+
+export interface TimingDecodeOnlyStats {
+  rounds: number;
+  real_seeds: TimingLatencyStats;
+  random_seeds: TimingLatencyStats;
+  ks_p_value: number;
+}
+
+export interface TimingProfilesMap {
+  default?: TimingProfileResult;
+  server_lite?: TimingProfileResult;
+  demo?: TimingProfileResult;
+  [key: string]: TimingProfileResult | undefined;
+}
+
+export interface EvalTiming {
+  n_per_class: number;
+  entries: number;
+  alpha?: number;
+  method?: string;
+  profiles: TimingProfilesMap;
+  decode_only_us?: TimingDecodeOnlyStats;
+}
+
 export interface EvalSummaryData {
   timestamp: string;
   version: string;
   dataset?: EvalDataset;
   round_trip: EvalRoundTrip;
   chi_squared: EvalChiSquared;
-  classifier?: Record<string, unknown>;
+  classifier?: EvalClassifier;
   distinguisher: EvalDistinguisher;
   template_frequencies?: TemplateFrequencyItem[];
   attack?: EvalAttack;
   kdf?: Record<string, KdfProfile>;
   performance: EvalPerformance;
+  timing?: EvalTiming;
   meta?: EvalMeta;
 }

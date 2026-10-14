@@ -1,17 +1,17 @@
-// owner: Chetan (T3) — eval mock handlers (feat/t3-eval-real-data)
+// owner: Chetan (T3) — eval mock handlers (feat/t3-eval-v3-ui)
 import { http, HttpResponse } from 'msw';
 import type { EvalSummaryResponse } from '@/api/types';
 
 // Exact copy of backend/eval/results/latest.json
 export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
-  "timestamp": "2026-10-08T10:37:03Z",
+  "timestamp": "2026-10-14T16:11:22Z",
   "version": "1.0.0",
   "dataset": {
-    "corpus": "SecLists RockYou, Zipf-ranked weights",
+    "corpus": "SecLists RockYou, Zipf-ranked weights; usernames: SecLists xato-net, Zipf-ranked",
     "training_samples": null,
     "test_samples": 50000,
     "heldout_passwords_file": "data/processed/heldout_passwords.tsv",
-    "heldout_usernames_file": null,
+    "heldout_usernames_file": "data/processed/heldout_usernames.tsv",
     "models": {
       "password_model": "pcfg-password-v1",
       "username_model": "pcfg-username-v1",
@@ -58,7 +58,7 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       "success_rate": 1.0,
       "wrong_seed_length": 0,
       "errors": {},
-      "source": "model_samples (held-out username file missing)"
+      "source": "heldout"
     },
     "entries": {
       "trials": 5000,
@@ -66,7 +66,7 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       "success_rate": 1.0,
       "wrong_seed_length": 0,
       "errors": {},
-      "source": "(username, password) pairs from the two sets above; model_samples (held-out username file missing)"
+      "source": "(username, password) pairs from the two sets above; heldout"
     },
     "heldout_passwords_available": 50000
   },
@@ -80,23 +80,23 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       "seed_byte_uniformity": {
         "test": "seed_byte_uniformity",
         "n": 20000,
-        "chi2": 390.6073212121212,
+        "chi2": 434.4442181818182,
         "dof": 255,
-        "p_value": 9.362406103949806e-08
+        "p_value": 1.683666192325883e-11
       },
       "seed_int_uniformity": {
         "test": "seed_int_uniformity",
         "n": 20000,
-        "chi2": 426.62451629010116,
+        "chi2": 417.67069446178175,
         "dof": 15,
-        "p_value": 1.7358313525667528e-81
+        "p_value": 1.3311233754473868e-79
       },
       "seed_int_uniformity_control": {
         "test": "seed_int_uniformity_control",
         "n": 20000,
-        "chi2": 17.426362107878035,
+        "chi2": 16.117458581993226,
         "dof": 15,
-        "p_value": 0.2940216064981968
+        "p_value": 0.37428853188827826
       },
       "template_goodness_of_fit": {
         "test": "template_goodness_of_fit",
@@ -108,13 +108,26 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
     },
     "username": {
       "model": "pcfg-username-v1",
-      "skipped": "seed_byte_uniformity / seed_int_uniformity: no held-out usernames",
+      "seed_byte_uniformity": {
+        "test": "seed_byte_uniformity",
+        "n": 20000,
+        "chi2": 920.4524895522388,
+        "dof": 255,
+        "p_value": 5.065617465619962e-76
+      },
+      "seed_int_uniformity": {
+        "test": "seed_int_uniformity",
+        "n": 20000,
+        "chi2": 1364.8609026170423,
+        "dof": 15,
+        "p_value": 5.9926334056259406e-282
+      },
       "seed_int_uniformity_control": {
         "test": "seed_int_uniformity_control",
         "n": 20000,
-        "chi2": 8.382795497624787,
+        "chi2": 21.20187025131502,
         "dof": 15,
-        "p_value": 0.9075209147910533
+        "p_value": 0.13050254820828155
       },
       "template_goodness_of_fit": {
         "test": "template_goodness_of_fit",
@@ -125,9 +138,9 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       }
     },
     "seed_uniformity": {
-      "statistic": 390.6073212121212,
+      "statistic": 434.4442181818182,
       "degrees_of_freedom": 255,
-      "p_value": 9.362406103949806e-08,
+      "p_value": 1.683666192325883e-11,
       "null_hypothesis_accepted": false,
       "note": "Password model: bytes of seeds from encoding held-out passwords vs uniform (256 bins)",
       "n": 20000
@@ -145,19 +158,136 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
     "password": {
       "n": 10000,
       "logreg": {
-        "accuracy_mean": 0.5005499999999999,
-        "accuracy_std": 0.004840970976983848,
-        "roc_auc_mean": 0.51747305
+        "accuracy_mean": 0.5173,
+        "accuracy_std": 0.010240117186829465,
+        "roc_auc_mean": 0.527569475
       },
       "random_forest": {
-        "accuracy_mean": 0.7408500000000001,
-        "accuracy_std": 0.004705316142407453,
-        "roc_auc_mean": 0.81015685
+        "accuracy_mean": 0.7401500000000001,
+        "accuracy_std": 0.005129814811472232,
+        "roc_auc_mean": 0.8052428749999999
       },
-      "interpretation": "≈0.5 = indistinguishable"
+      "interpretation": "≈0.5 = indistinguishable",
+      "grouped": {
+        "n": 10000,
+        "distinct_strings": 11455,
+        "logreg": {
+          "accuracy_mean": 0.4619,
+          "accuracy_std": 0.061808292323926886,
+          "roc_auc_mean": 0.45409637499999994
+        },
+        "random_forest": {
+          "accuracy_mean": 0.5167499999999999,
+          "accuracy_std": 0.04468333022504028,
+          "roc_auc_mean": 0.5091537999999999
+        }
+      },
+      "distinct": {
+        "n": 5687,
+        "distinct_real": 6007,
+        "distinct_decoy": 5687,
+        "logreg": {
+          "accuracy_mean": 0.5437839697681385,
+          "accuracy_std": 0.0031756813160750343,
+          "roc_auc_mean": 0.5671294494047308
+        },
+        "random_forest": {
+          "accuracy_mean": 0.5072088685281297,
+          "accuracy_std": 0.008716550394147574,
+          "roc_auc_mean": 0.5187300687784979
+        }
+      }
     },
     "username": {
-      "skipped": "no held-out usernames file"
+      "n": 10000,
+      "logreg": {
+        "accuracy_mean": 0.7337499999999999,
+        "accuracy_std": 0.0038470768123342967,
+        "roc_auc_mean": 0.7933458250000001
+      },
+      "random_forest": {
+        "accuracy_mean": 0.827,
+        "accuracy_std": 0.005424481542046212,
+        "roc_auc_mean": 0.9147115250000001
+      },
+      "interpretation": "≈0.5 = indistinguishable",
+      "grouped": {
+        "n": 10000,
+        "distinct_strings": 11998,
+        "logreg": {
+          "accuracy_mean": 0.72805,
+          "accuracy_std": 0.010856334556377696,
+          "roc_auc_mean": 0.7819294750000001
+        },
+        "random_forest": {
+          "accuracy_mean": 0.5630499999999999,
+          "accuracy_std": 0.08797576370796673,
+          "roc_auc_mean": 0.7133034500000001
+        }
+      },
+      "distinct": {
+        "n": 4378,
+        "distinct_real": 4378,
+        "distinct_decoy": 7681,
+        "logreg": {
+          "accuracy_mean": 0.7592501610299659,
+          "accuracy_std": 0.007141104400344822,
+          "roc_auc_mean": 0.7840525525203512
+        },
+        "random_forest": {
+          "accuracy_mean": 0.6772497255319204,
+          "accuracy_std": 0.005947675527020168,
+          "roc_auc_mean": 0.7627338641217418
+        }
+      },
+      "without_domain": {
+        "n": 10000,
+        "logreg": {
+          "accuracy_mean": 0.57145,
+          "accuracy_std": 0.003909603560464944,
+          "roc_auc_mean": 0.6237055
+        },
+        "random_forest": {
+          "accuracy_mean": 0.78265,
+          "accuracy_std": 0.00390704491911723,
+          "roc_auc_mean": 0.8626568499999999
+        },
+        "interpretation": "≈0.5 = indistinguishable",
+        "transformed": {
+          "real": 0,
+          "decoy": 4554
+        },
+        "grouped": {
+          "n": 10000,
+          "distinct_strings": 10430,
+          "logreg": {
+            "accuracy_mean": 0.5533834341929114,
+            "accuracy_std": 0.05863205751438029,
+            "roc_auc_mean": 0.5749826455226292
+          },
+          "random_forest": {
+            "accuracy_mean": 0.5459230610785871,
+            "accuracy_std": 0.09180538148790511,
+            "roc_auc_mean": 0.5618266066725874
+          }
+        },
+        "distinct": {
+          "n": 4378,
+          "distinct_real": 4378,
+          "distinct_decoy": 6153,
+          "logreg": {
+            "accuracy_mean": 0.5574468209946566,
+            "accuracy_std": 0.010946732510834847,
+            "roc_auc_mean": 0.5796859804245711
+          },
+          "random_forest": {
+            "accuracy_mean": 0.5277517217819432,
+            "accuracy_std": 0.011060822886659093,
+            "roc_auc_mean": 0.5383541959687485
+          }
+        },
+        "note": "known email domains (the username model's table) stripped from real and decoy values before features; same real sample, fresh decoys"
+      }
     }
   },
   "distinguisher": {
@@ -177,29 +307,53 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       "shannon_entropy"
     ],
     "metrics": {
-      "accuracy": 0.7408500000000001,
-      "roc_auc": 0.81015685,
-      "precision": 0.7363482907965387,
-      "recall": 0.7614000000000001,
+      "accuracy": 0.7401500000000001,
+      "roc_auc": 0.8052428749999999,
+      "precision": 0.7297618237894935,
+      "recall": 0.7617999999999999,
       "baseline_chance": 0.5
     },
     "metrics_classifier": "random_forest",
     "per_classifier": {
       "logreg": {
-        "accuracy_mean": 0.5005499999999999,
-        "accuracy_std": 0.004840970976983848,
-        "roc_auc_mean": 0.51747305
+        "accuracy_mean": 0.5173,
+        "accuracy_std": 0.010240117186829465,
+        "roc_auc_mean": 0.527569475
       },
       "random_forest": {
-        "accuracy_mean": 0.7408500000000001,
-        "accuracy_std": 0.004705316142407453,
-        "roc_auc_mean": 0.81015685
+        "accuracy_mean": 0.7401500000000001,
+        "accuracy_std": 0.005129814811472232,
+        "roc_auc_mean": 0.8052428749999999
+      }
+    },
+    "grouped_results": {
+      "logreg": {
+        "accuracy_mean": 0.4619,
+        "accuracy_std": 0.061808292323926886,
+        "roc_auc_mean": 0.45409637499999994
+      },
+      "random_forest": {
+        "accuracy_mean": 0.5167499999999999,
+        "accuracy_std": 0.04468333022504028,
+        "roc_auc_mean": 0.5091537999999999
+      }
+    },
+    "distinct_results": {
+      "logreg": {
+        "accuracy_mean": 0.5437839697681385,
+        "accuracy_std": 0.0031756813160750343,
+        "roc_auc_mean": 0.5671294494047308
+      },
+      "random_forest": {
+        "accuracy_mean": 0.5072088685281297,
+        "accuracy_std": 0.008716550394147574,
+        "roc_auc_mean": 0.5187300687784979
       }
     },
     "n_per_class": 10000,
     "target_accuracy": 0.6,
     "ideal_accuracy": 0.5,
-    "conclusion": "Password distinguisher (random_forest) accuracy 0.741 vs ideal 0.5: misses the <= 0.60 target: the classifier separates real passwords from decoys."
+    "conclusion": "Password distinguisher (random_forest) accuracy 0.740 vs ideal 0.5: misses the <= 0.60 target: the classifier separates real passwords from decoys. Best accuracy with grouped CV (no string in both train and test) 0.517; on distinct strings only 0.544."
   },
   "template_frequencies": [
     {
@@ -314,18 +468,18 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
     "wordlist": "attack/wordlists/demo_wordlist.txt",
     "wordlist_size": 629,
     "guesses": 500,
-    "real_guess_index": 129,
+    "real_guess_index": 193,
     "conventional": {
       "cracked": true,
-      "guess_index": 129,
-      "elapsed_ms": 698,
+      "guess_index": 193,
+      "elapsed_ms": 1413,
       "recovered_entries": 8,
       "recovered_entries_are_real": true
     },
     "honey": {
       "guesses_tried": 500,
-      "elapsed_ms": 3360,
-      "ms_per_guess": 6.72,
+      "elapsed_ms": 3580,
+      "ms_per_guess": 7.16,
       "distinct_vaults": 500,
       "distinct_vault_rate": 1.0,
       "samples_returned": 25,
@@ -343,18 +497,18 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       },
       "reps": 15,
       "derive_ms": {
-        "p50": 49.62,
-        "p95": 58.17,
-        "mean": 50.92,
-        "min": 46.95,
-        "max": 68.79
+        "p50": 85.1,
+        "p95": 202.02,
+        "mean": 98.74,
+        "min": 50.74,
+        "max": 231.59
       },
       "unlock_ms": {
-        "p50": 49.16,
-        "p95": 51.31,
-        "mean": 49.27,
-        "min": 47.02,
-        "max": 51.98
+        "p50": 54.48,
+        "p95": 151.5,
+        "mean": 70.05,
+        "min": 51.71,
+        "max": 167.09
       }
     },
     "server_lite": {
@@ -366,18 +520,18 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       },
       "reps": 15,
       "derive_ms": {
-        "p50": 24.81,
-        "p95": 25.8,
-        "mean": 24.9,
-        "min": 24.29,
-        "max": 26.37
+        "p50": 25.98,
+        "p95": 30.48,
+        "mean": 26.52,
+        "min": 25.33,
+        "max": 30.78
       },
       "unlock_ms": {
-        "p50": 25.34,
-        "p95": 25.54,
-        "mean": 25.24,
-        "min": 24.5,
-        "max": 25.56
+        "p50": 26.67,
+        "p95": 30.12,
+        "mean": 27.2,
+        "min": 25.47,
+        "max": 30.54
       }
     },
     "demo": {
@@ -389,32 +543,118 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       },
       "reps": 15,
       "derive_ms": {
-        "p50": 6.14,
-        "p95": 6.31,
-        "mean": 6.17,
-        "min": 6.08,
-        "max": 6.33
+        "p50": 7.5,
+        "p95": 12.68,
+        "mean": 8.5,
+        "min": 6.76,
+        "max": 23.22
       },
       "unlock_ms": {
-        "p50": 6.4,
-        "p95": 6.53,
-        "mean": 6.4,
-        "min": 6.3,
-        "max": 6.6
+        "p50": 7.47,
+        "p95": 8.23,
+        "mean": 7.47,
+        "min": 6.79,
+        "max": 8.25
       }
     }
   },
+  "timing": {
+    "n_per_class": 200,
+    "entries": 8,
+    "alpha": 0.05,
+    "method": "in-process HoneyVault.unlock, right vs fresh wrong master password (plus a second right sample as A/A control), interleaved; two-sample Kolmogorov-Smirnov test",
+    "profiles": {
+      "default": {
+        "right_ms": {
+          "p50": 53.18,
+          "p95": 195.78,
+          "mean": 77.9,
+          "min": 41.09,
+          "max": 478.0
+        },
+        "wrong_ms": {
+          "p50": 53.67,
+          "p95": 199.73,
+          "mean": 80.69,
+          "min": 40.84,
+          "max": 653.2
+        },
+        "ks_statistic": 0.06000000000000005,
+        "ks_p_value": 0.8655265369450457,
+        "same_distribution": true,
+        "control_ks_p_value": 0.46628639073563594
+      },
+      "server_lite": {
+        "right_ms": {
+          "p50": 27.3,
+          "p95": 54.6,
+          "mean": 32.68,
+          "min": 21.05,
+          "max": 150.26
+        },
+        "wrong_ms": {
+          "p50": 27.17,
+          "p95": 52.69,
+          "mean": 32.45,
+          "min": 20.89,
+          "max": 150.51
+        },
+        "ks_statistic": 0.09000000000000002,
+        "ks_p_value": 0.39352743357720954,
+        "same_distribution": true,
+        "control_ks_p_value": 0.9646522162314058
+      },
+      "demo": {
+        "right_ms": {
+          "p50": 5.98,
+          "p95": 8.34,
+          "mean": 6.63,
+          "min": 5.28,
+          "max": 37.86
+        },
+        "wrong_ms": {
+          "p50": 5.93,
+          "p95": 7.78,
+          "mean": 6.23,
+          "min": 5.18,
+          "max": 10.14
+        },
+        "ks_statistic": 0.125,
+        "ks_p_value": 0.0878382826713132,
+        "same_distribution": true,
+        "control_ks_p_value": 0.1420746514551761
+      }
+    },
+    "decode_only_us": {
+      "rounds": 2000,
+      "real_seeds": {
+        "p50": 86.5,
+        "p95": 109.22,
+        "mean": 89.99,
+        "min": 82.8,
+        "max": 204.3
+      },
+      "random_seeds": {
+        "p50": 44.9,
+        "p95": 54.41,
+        "mean": 46.44,
+        "min": 37.6,
+        "max": 117.2
+      },
+      "ks_p_value": 0.0
+    }
+  },
   "performance": {
-    "unlock_p50_ms": 49.16,
-    "unlock_p95_ms": 51.31,
+    "unlock_p50_ms": 54.48,
+    "unlock_p95_ms": 151.5,
     "target_p95_ms": 1500,
     "argon2_kdf_profile": "default (t=3, m=64 MiB, p=4)",
     "entries": 8,
     "measured": "in-process HoneyVault.unlock (no HTTP); see kdf for every profile"
   },
   "meta": {
-    "git_commit": "c8b08aa",
-    "timestamp": "2026-10-08T10:37:03Z",
+    "git_commit": "91e3171",
+    "timestamp": "2026-10-14T16:11:22Z",
     "mode": "full",
     "seed": 7,
     "config": {
@@ -426,27 +666,29 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       "classifier_n": 10000,
       "template_n": 20000,
       "attack_guesses": 500,
-      "kdf_reps": 15
+      "kdf_reps": 15,
+      "timing_n": 200
     },
     "models": {
       "password_model": "pcfg-password-v1",
       "username_model": "pcfg-username-v1",
       "entry_seed_len": 532
     },
-    "entry_dte_impl": "eval.run_all.ConcatEntryDTE (PCFGEntryDTE not landed yet)",
+    "entry_dte_impl": "honeycore.dte.entry_dte.PCFGEntryDTE",
     "honeycore_impl": "real",
-    "dataset_note": "SecLists RockYou, Zipf-ranked weights",
+    "dataset_note": "SecLists RockYou, Zipf-ranked weights; usernames: SecLists xato-net, Zipf-ranked",
     "python": "3.12.10",
     "platform": "Windows-11",
     "step_seconds": {
-      "round_trip": 3.14,
-      "chi_squared": 5.76,
-      "template_frequencies": 0.42,
-      "classifier": 30.78,
-      "attack": 4.32,
-      "kdf": 3.09
+      "round_trip": 3.03,
+      "chi_squared": 7.51,
+      "template_frequencies": 0.39,
+      "classifier": 112.85,
+      "attack": 5.33,
+      "kdf": 4.96,
+      "timing": 73.65
     },
-    "duration_s": 48.25,
+    "duration_s": 208.47,
     "reproducibility": "held-out sampling, random seeds and CV folds use NumPy RNG(seed); decoys (model.sample), vault salts/nonces and the attack password use `secrets`, so classifier/attack numbers vary slightly between runs"
   }
 };
