@@ -415,7 +415,7 @@ def test_blob_values(filled: tuple[HoneyVault, list[str]]) -> None:
     }
     assert len(base64.b64decode(blob["kdf"]["salt"], validate=True)) == SALT_LEN
     assert blob["dte"] == {
-        "password_model": "pcfg-password-v1",
+        "password_model": "pcfg-password-v2",
         "username_model": "pcfg-username-v1",
         "entry_seed_len": ENTRY_SEED_LEN,
     }

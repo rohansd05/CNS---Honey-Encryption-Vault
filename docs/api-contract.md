@@ -177,7 +177,7 @@ Request: same body as POST. Re-encrypts only that entry.
 {"format": "honeyvault", "version": 1, "scheme": "HE-PCFG-v1/AES-256-CTR/argon2id",
  "kdf": {"alg": "argon2id", "profile": "default", "salt": "<b64 16B>", "time_cost": 3,
          "memory_cost_kib": 65536, "parallelism": 4, "hash_len": 32},
- "dte": {"password_model": "pcfg-password-v1", "username_model": "pcfg-username-v1", "entry_seed_len": 532},
+ "dte": {"password_model": "pcfg-password-v2", "username_model": "pcfg-username-v1", "entry_seed_len": 532},
  "entries": [{"id": "<uuid4>", "service": "github.com", "nonce": "<b64 16B>",
               "ciphertext": "<b64 532B>", "created_at": "<ISO8601>", "updated_at": "<ISO8601>"}]}
 ```
