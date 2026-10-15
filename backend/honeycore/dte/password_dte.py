@@ -40,8 +40,8 @@ __all__ = [
     "parse_template",
 ]
 
-MODEL_ID = "pcfg-password-v1"
-DEFAULT_MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "pcfg_password_v1.json.gz"
+MODEL_ID = "pcfg-password-v2"
+DEFAULT_MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "pcfg_password_v2.json.gz"
 
 
 def parse_template(password: str) -> tuple[str, list[str]]:

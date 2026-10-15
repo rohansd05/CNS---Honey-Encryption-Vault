@@ -88,7 +88,7 @@ def test_protocol_and_seed_layout(dte: PCFGEntryDTE) -> None:
 def test_model_ids_match_vault_dte_block(dte: PCFGEntryDTE) -> None:
     assert set(dte.model_ids) == DTE_KEYS - {"entry_seed_len"}
     assert dict(dte.model_ids) == {
-        "password_model": "pcfg-password-v1",
+        "password_model": "pcfg-password-v2",
         "username_model": "pcfg-username-v1",
     }
     with pytest.raises(TypeError):
@@ -206,7 +206,7 @@ def test_sample_is_valid_and_varied(dte: PCFGEntryDTE) -> None:
 def test_vault_blob_carries_model_ids(filled: tuple[HoneyVault, list[str]]) -> None:
     blob = filled[0].to_dict()
     assert blob["dte"] == {
-        "password_model": "pcfg-password-v1",
+        "password_model": "pcfg-password-v2",
         "username_model": "pcfg-username-v1",
         "entry_seed_len": ENTRY_SEED_LEN,
     }
