@@ -4,7 +4,7 @@ Usage (from backend/)::
 
     python scripts/train_pcfg.py --kind password \\
         --input ../data/raw/rockyou-withcount.txt.bz2 --format withcount \\
-        --max-lines 1000000 --out honeycore/models/pcfg_password_v1.json.gz
+        --max-lines 1000000 --out honeycore/models/pcfg_password_v2.json.gz
 
     python scripts/train_pcfg.py --kind username \\
         --input ../data/raw/xato-net-10-million-usernames.txt --format plain \\
@@ -15,11 +15,17 @@ Input may be plain text, ``.bz2`` or ``.gz``. ``withcount`` lines look like ``" 
 ``1/r**0.9`` scaled so the last line weighs 1). ``--format`` defaults to ``withcount`` for
 passwords and ``plain`` for usernames. Lines are decoded as latin-1; only valid fields
 (1..32 printable ASCII) are kept. Held-out values (``pcfg.is_heldout``, ~20%) are NEVER
-trained on; up to ``--heldout-max`` of them are written with their weights to
-``data/processed/heldout_<kind>s.tsv`` (``value<TAB>weight``) for evaluation. Username models
+trained on; a uniform random sample of ``--heldout-max`` of them (reservoir sampling over the
+whole held-out split of the lines read, ``random.Random(HELDOUT_SEED)`` with
+``HELDOUT_SEED = 7``, written in corpus order) goes with its weights (real counts for
+``withcount``) to ``data/processed/heldout_<kind>s.tsv`` (``value<TAB>weight``) for
+evaluation. Same input + flags => byte-identical model and held-out files. Username models
 also get the fixed built-in email-domain table (``pcfg.email_domain_weights``).
 
-Never print corpus lines: the summary reports counts only.
+``--model-id`` (default ``pcfg-password-v2`` / ``pcfg-username-v1``) names the default
+``--out`` file (``pcfg_<kind>_v<N>.json.gz``); the id the DTE reports is its ``MODEL_ID``.
+
+Never print corpus lines: the summary reports counts and sha256 digests only.
 """
 
 from __future__ import annotations
@@ -27,6 +33,8 @@ from __future__ import annotations
 import argparse
 import bz2
 import gzip
+import hashlib
+import random
 import re
 import sys
 import time
@@ -49,11 +57,13 @@ from honeycore.dte.pcfg import (  # noqa: E402
 
 WITHCOUNT_RE = re.compile(r"^\s*(\d+) (.*)$")
 ZIPF_EXPONENT = 0.9
+HELDOUT_SEED = 7  # fixed: the held-out sample is reproducible (not a secret; eval only)
 MAX_MODEL_BYTES = 10 * 1024 * 1024
 MODELS = BACKEND / "honeycore" / "models"
 PROCESSED = REPO / "data" / "processed"
 TRAINERS = {"password": train_password_model, "username": train_username_model}
 DEFAULT_FORMAT = {"password": "withcount", "username": "plain"}
+DEFAULT_MODEL_ID = {"password": "pcfg-password-v2", "username": "pcfg-username-v1"}
 
 
 def open_corpus(path: Path) -> IO[bytes]:
@@ -111,21 +121,37 @@ def split_heldout(
     heldout_out: IO[str] | None,
     heldout_max: int,
     stats: dict[str, int],
+    seed: int = HELDOUT_SEED,
 ) -> Iterator[tuple[str, float]]:
-    """Pass training pairs through; divert held-out ones to ``heldout_out`` (never trained on).
+    """Pass training pairs through; divert held-out ones (never trained on) to a sample.
 
+    Once ``pairs`` is exhausted, a seeded uniform sample (reservoir, Algorithm R) of up to
+    ``heldout_max`` held-out pairs is written to ``heldout_out`` in corpus order.
     Updates ``stats``: ``kept``, ``heldout``, ``heldout_written``.
     """
+    rng = random.Random(seed)  # noqa: S311 - reproducible eval sample, not security
+    reservoir: list[tuple[int, str, float]] = []
     for password, weight in pairs:
         if is_heldout(password):
+            i = stats["heldout"]
             stats["heldout"] += 1
-            if heldout_out is not None and stats["heldout_written"] < heldout_max:
-                w = str(weight) if isinstance(weight, int) else f"{weight:.6g}"
-                heldout_out.write(f"{password}\t{w}\n")
-                stats["heldout_written"] += 1
+            if len(reservoir) < heldout_max:
+                reservoir.append((i, password, weight))
+            elif (j := rng.randrange(i + 1)) < heldout_max:
+                reservoir[j] = (i, password, weight)
             continue
         stats["kept"] += 1
         yield password, weight
+    if heldout_out is not None:
+        for _, password, weight in sorted(reservoir):
+            w = str(weight) if isinstance(weight, int) else f"{weight:.6g}"
+            heldout_out.write(f"{password}\t{w}\n")
+            stats["heldout_written"] += 1
+
+
+def sha256_file(path: Path) -> str:
+    """Return the hex SHA-256 of ``path``."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -135,14 +161,18 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--input", required=True, type=Path)
     ap.add_argument("--format", choices=["withcount", "plain"], help="default: by --kind")
     ap.add_argument("--max-lines", type=int, default=1_000_000)
-    ap.add_argument("--out", type=Path, help="default: honeycore/models/pcfg_<kind>_v1.json.gz")
+    ap.add_argument("--model-id", help="default: pcfg-password-v2 / pcfg-username-v1")
+    ap.add_argument("--out", type=Path, help="default: honeycore/models/<model id, - as _>.json.gz")
     ap.add_argument("--heldout-out", type=Path, help="default: data/processed/heldout_<kind>s.tsv")
     ap.add_argument("--heldout-max", type=int, default=50_000)
     args = ap.parse_args(argv)
     if args.max_lines < 1:
         ap.error("--max-lines must be >= 1")
     args.format = args.format or DEFAULT_FORMAT[args.kind]
-    args.out = args.out or MODELS / f"pcfg_{args.kind}_v1.json.gz"
+    args.model_id = args.model_id or DEFAULT_MODEL_ID[args.kind]
+    if not re.fullmatch(rf"pcfg-{args.kind}-v[1-9][0-9]*", args.model_id):
+        ap.error(f"--model-id must look like pcfg-{args.kind}-v<N>")
+    args.out = args.out or MODELS / f"{args.model_id.replace('-', '_')}.json.gz"
     args.heldout_out = args.heldout_out or PROCESSED / f"heldout_{args.kind}s.tsv"
 
     stats = dict.fromkeys(
@@ -160,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
     elapsed = time.perf_counter() - started
 
     n_segments = sum(len(b) for by_len in model["segments"].values() for b in by_len.values())
-    print(f"PCFG {args.kind} model trained")
+    print(f"PCFG {args.kind} model trained ({args.model_id})")
     print(f"  input            {args.input} ({args.format})")
     print(f"  lines read       {stats['lines']:,}")
     print(f"  malformed        {stats['malformed']:,}")
@@ -174,6 +204,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  email domains    {len(model['email_domains']) - 1:,}  (+ __NONE__)")
     print(f"  model            {args.out} — {size:,} bytes ({size / 2**20:.2f} MiB gz)")
     print(f"  held-out file    {args.heldout_out}")
+    print(f"  model sha256     {sha256_file(args.out)}")
+    print(f"  held-out sha256  {sha256_file(args.heldout_out)}")
     print(f"  time             {elapsed:.1f} s")
     if size > MAX_MODEL_BYTES:
         print("  !! model exceeds 10 MB; lower --max-lines or top-K", file=sys.stderr)

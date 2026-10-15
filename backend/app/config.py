@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     bob_username: str = "bob"
     bob_login_password: SecretStr | None = None
     bob_master_password: SecretStr | None = None
-    pcfg_password_model_path: str = "honeycore/models/pcfg_password_v1.json.gz"  # noqa: S105
+    pcfg_password_model_path: str = "honeycore/models/pcfg_password_v2.json.gz"  # noqa: S105
     pcfg_username_model_path: str = "honeycore/models/pcfg_username_v1.json.gz"
     eval_results_path: str = "eval/results/latest.json"
     key_wrap_secret: SecretStr = SecretStr("")

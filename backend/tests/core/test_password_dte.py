@@ -148,7 +148,7 @@ def _is_valid_password(pw: object) -> bool:
 
 def test_protocol_and_constants(toy: PCFGPasswordModel) -> None:
     assert isinstance(toy, PasswordModel)
-    assert toy.model_id == MODEL_ID == "pcfg-password-v1"
+    assert toy.model_id == MODEL_ID == "pcfg-password-v2"
     assert toy.seed_len == SEED_LEN == 264
 
 
@@ -165,7 +165,7 @@ def test_uses_shared_pcfg_parser(pw: str) -> None:
 
 
 def test_default_model_path_is_inside_package() -> None:
-    assert DEFAULT_MODEL_PATH.parts[-3:] == ("honeycore", "models", "pcfg_password_v1.json.gz")
+    assert DEFAULT_MODEL_PATH.parts[-3:] == ("honeycore", "models", "pcfg_password_v2.json.gz")
 
 
 # --- encode / decode round trip ------------------------------------------------------------

@@ -103,7 +103,7 @@ class BiasedEncoder(_Delegate):
         )
 
 
-class _QuarterReader:
+class _LowReader:
     def __init__(self, reader: SeedReader) -> None:
         self._reader = reader
 
@@ -112,14 +112,14 @@ class _QuarterReader:
         return self._reader.remaining
 
     def next(self) -> int:
-        return self._reader.next() >> 2
+        return self._reader.next() % 4
 
 
 class BiasedDecoder(_Delegate):
-    """A decoder bug: ints are shifted right by 2, so only the low cumulative mass is reached."""
+    """A decoder bug: ints are reduced mod 4, so only the lowest cumulative mass is reached."""
 
     def _decode_block(self, reader: SeedReader) -> str:
-        return self._inner._decode_block(_QuarterReader(reader))
+        return self._inner._decode_block(_LowReader(reader))
 
 
 # ---- result shape ---------------------------------------------------------------------------
@@ -253,7 +253,7 @@ def heldout_files(
 
 def _check_report(report: dict, n: int) -> None:
     assert {"n", "seed", "alpha", "interpretation", "password", "username"} <= set(report)
-    for kind, model_id in (("password", "pcfg-password-v1"), ("username", "pcfg-username-v1")):
+    for kind, model_id in (("password", "pcfg-password-v2"), ("username", "pcfg-username-v1")):
         section = report[kind]
         assert section["model"] == model_id
         _check(section["seed_byte_uniformity"], "seed_byte_uniformity", n, dof=255)

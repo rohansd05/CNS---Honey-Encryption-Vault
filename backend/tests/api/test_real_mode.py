@@ -94,7 +94,7 @@ def test_register_add_unlock_right_and_wrong(real_client: TestClient) -> None:
     assert blob["scheme"] == SCHEME  # the real vault, not the stub
     assert blob["kdf"]["profile"] == "demo"
     assert blob["dte"] == {
-        "password_model": "pcfg-password-v1",
+        "password_model": "pcfg-password-v2",
         "username_model": "pcfg-username-v1",
         "entry_seed_len": ENTRY_SEED_LEN,
     }
