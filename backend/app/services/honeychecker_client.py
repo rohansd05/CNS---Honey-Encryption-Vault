@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class HoneycheckerUnavailable(Exception):
-    """Raised when the honeychecker service is unreachable or returns a 5xx error."""
+    """Raised when the honeychecker service is unreachable or returns an unexpected response."""
 
 
 def _resolve_file_path(p: str | None) -> Path | None:
@@ -281,9 +281,8 @@ class HoneycheckerClient:
         try:
             resp = self._client.request(method, path, **kwargs)
             if resp.status_code >= 500:
-                raise HoneycheckerUnavailable(
-                    f"Honeychecker server error HTTP {resp.status_code}: {resp.text}"
-                )
+                # Status only: bodies may echo the request (user_id/index) into logs.
+                raise HoneycheckerUnavailable(f"Honeychecker server error HTTP {resp.status_code}")
             return resp
         except (httpx.RequestError, httpx.TimeoutException) as exc:
             raise HoneycheckerUnavailable(f"Honeychecker network error: {exc}") from exc
@@ -291,26 +290,38 @@ class HoneycheckerClient:
     def register(self, user_id: str, index: int) -> None:
         """Register a user's real sweetword index with the honeychecker.
 
-        Raises HoneycheckerUnavailable on network or 5xx server errors.
         Raises httpx.HTTPStatusError on 409 Conflict if already registered.
+        Raises HoneycheckerUnavailable on network errors or any other non-201 response.
         """
         resp = self._request("POST", "/hc/register", json={"user_id": user_id, "index": index})
-        if resp.status_code >= 400:
+        if resp.status_code == 201:
+            return
+        if resp.status_code == 409:
             resp.raise_for_status()
+        raise HoneycheckerUnavailable(
+            f"Honeychecker unexpected register response HTTP {resp.status_code}"
+        )
 
     def check(self, user_id: str, index: int) -> bool:
         """Check a candidate sweetword index against the honeychecker.
 
-        Returns True if matched, False on mismatch or unknown user.
-        Raises HoneycheckerUnavailable on network or 5xx server errors.
+        Returns True if matched, False on mismatch or unknown user (404).
+        Raises HoneycheckerUnavailable on network errors, any other status, or a
+        200 body that is not JSON of the form {"match": bool}.
         """
         resp = self._request("POST", "/hc/check", json={"user_id": user_id, "index": index})
-        if resp.status_code == 200:
-            return bool(resp.json().get("match", False))
         if resp.status_code == 404:
             return False
-        resp.raise_for_status()
-        return False
+        if resp.status_code == 200:
+            try:
+                match = resp.json().get("match")
+            except (ValueError, AttributeError):
+                match = None
+            if isinstance(match, bool):
+                return match
+        raise HoneycheckerUnavailable(
+            f"Honeychecker unexpected check response HTTP {resp.status_code}"
+        )
 
     def health(self) -> bool:
         """Check honeychecker service health.

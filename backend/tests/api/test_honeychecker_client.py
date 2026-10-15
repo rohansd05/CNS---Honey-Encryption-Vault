@@ -7,15 +7,18 @@ from __future__ import annotations
 
 import base64
 import ssl
+import uuid
 from pathlib import Path
 
 import httpx
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from app.config import get_settings
+from app.rate_limit import limiter
 from app.services.honeychecker_client import (
     HoneycheckerClient,
     HoneycheckerUnavailable,
@@ -202,6 +205,79 @@ def test_client_register_unavailable() -> None:
 
     with pytest.raises(HoneycheckerUnavailable):
         client.register(user_id="user-1", index=3)
+
+
+def _mock_client(response: httpx.Response) -> HoneycheckerClient:
+    """Plain-mode client whose MockTransport always returns ``response``."""
+    transport = httpx.MockTransport(lambda request: response)
+    return HoneycheckerClient(
+        base_url="http://test-hc:8001",
+        client_factory=lambda: httpx.Client(transport=transport, base_url="http://test-hc:8001"),
+    )
+
+
+UNEXPECTED_RESPONSES = [
+    httpx.Response(401, json={"detail": "Missing signature"}),
+    httpx.Response(422, json={"detail": [{"loc": ["body", "index"], "input": 4}]}),
+    httpx.Response(502, text="<html><body>Bad Gateway</body></html>"),
+    httpx.Response(200, text="not json"),
+    httpx.Response(200, json=["match", True]),
+    httpx.Response(200, json={"match": "yes"}),
+]
+
+
+@pytest.mark.parametrize("response", UNEXPECTED_RESPONSES)
+def test_client_check_unexpected_response_unavailable(response: httpx.Response) -> None:
+    """check raises HoneycheckerUnavailable (not HTTPStatusError) on any unexpected response."""
+    with pytest.raises(HoneycheckerUnavailable) as exc_info:
+        _mock_client(response).check(user_id="user-1", index=4)
+    # Response bodies (which may echo the index) must not leak into the error message.
+    assert "input" not in str(exc_info.value)
+    assert "html" not in str(exc_info.value)
+
+
+@pytest.mark.parametrize("status_code", [200, 400, 401, 403, 422])
+def test_client_register_unexpected_status_unavailable(status_code: int) -> None:
+    """register raises HoneycheckerUnavailable on any status other than 201 or 409."""
+    with pytest.raises(HoneycheckerUnavailable):
+        _mock_client(httpx.Response(status_code, json={})).register(user_id="user-1", index=3)
+
+
+def test_login_honeychecker_401_returns_503(client: TestClient) -> None:
+    """Login fails closed with 503 when the honeychecker rejects the check with 401."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/hc/register":
+            return httpx.Response(201, json={"status": "registered"})
+        return httpx.Response(401, json={"detail": "Missing signature"})
+
+    transport = httpx.MockTransport(handler)
+    hc = HoneycheckerClient(
+        base_url="http://test-hc:8001",
+        client_factory=lambda: httpx.Client(transport=transport, base_url="http://test-hc:8001"),
+    )
+    limiter.reset()
+    client.app.dependency_overrides[get_honeychecker_client] = lambda: hc
+    try:
+        username = f"user_{uuid.uuid4().hex[:8]}"
+        login_pw = "Password123!"
+        reg = client.post(
+            "/api/auth/register",
+            json={
+                "username": username,
+                "login_password": login_pw,
+                "master_password": "MasterPassword123!",
+            },
+        )
+        assert reg.status_code == 201
+        resp = client.post(
+            "/api/auth/login", json={"username": username, "login_password": login_pw}
+        )
+        assert resp.status_code == 503
+        assert resp.json()["detail"] == "Service temporarily unavailable"
+    finally:
+        client.app.dependency_overrides.pop(get_honeychecker_client, None)
+        limiter.reset()
 
 
 def test_client_health() -> None:
