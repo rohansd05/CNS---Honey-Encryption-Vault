@@ -240,7 +240,7 @@ Unused trailing ints in a seed are filled with `secrets.randbits(32)`.
 - **Encode:** use the PCFG path if the template exists; else the fallback path. Within PCFG, use
   the vocab word if present; else `__CHARS__`.
 - `sample_like(pw)`: keep pw's template, sample fresh segments (used for honeywords).
-- **Model file:** `honeycore/models/pcfg_password_v1.json.gz`:
+- **Model file:** `honeycore/models/pcfg_password_v2.json.gz`:
   `{"version":1,"kind":"password","max_len":32,"path":{...},"templates":{...},
   "segments":{"L":{"6":{"monkey":123,"__CHARS__":5}}},"unigrams":{"L":{},"D":{},"S":{},"ANY":{}},
   "fallback_lengths":{"1":...}}`
@@ -277,7 +277,7 @@ AES-256-CTR (`cryptography`), random 16-byte nonce **per entry**, `ct = seed XOR
 {"format":"honeyvault","version":1,"scheme":"HE-PCFG-v1/AES-256-CTR/argon2id",
  "kdf":{"alg":"argon2id","profile":"default","salt":"<b64 16B>","time_cost":3,
         "memory_cost_kib":65536,"parallelism":4,"hash_len":32},
- "dte":{"password_model":"pcfg-password-v1","username_model":"pcfg-username-v1","entry_seed_len":532},
+ "dte":{"password_model":"pcfg-password-v2","username_model":"pcfg-username-v1","entry_seed_len":532},
  "entries":[{"id":"<uuid4>","service":"github.com","nonce":"<b64 16B>",
              "ciphertext":"<b64 532B>","created_at":"<ISO8601>","updated_at":"<ISO8601>"}]}
 ```
