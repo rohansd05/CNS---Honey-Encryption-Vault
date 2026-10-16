@@ -8,7 +8,9 @@ Built by **Ocean's 10** for *Cryptography & Network Security (CE305/CS305)*,
 Applied Cryptography and Network Security Design Challenge (ACNS-DC) 2026-27,
 Sardar Patel Institute of Technology, Mumbai.
 
-**Live demo:** _coming soon_ · **API docs:** _coming soon_ · **Report:** `docs/eval-report.md`
+**Live demo:** https://honeyvault-three.vercel.app · **API health:** https://honeyvault-api.onrender.com/api/health · **API contract:** [`docs/api-contract.md`](docs/api-contract.md) · **Report:** [`docs/eval-report.md`](docs/eval-report.md)
+
+> Free-tier hosting: services sleep after 15 min idle, so the first load can take about a minute.
 
 ---
 
