@@ -6,6 +6,7 @@ One ``--quick`` run on the committed PCFG models feeds most tests. Held-out file
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -154,6 +155,25 @@ def test_quick_timing_block(quick_results: dict[str, Any]) -> None:
     decode = timing["decode_only_us"]
     assert 0.0 <= decode["ks_p_value"] <= 1.0
     assert decode["real_seeds"]["p50"] > 0.0 and decode["random_seeds"]["p50"] > 0.0
+
+
+def _digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_meta_records_model_and_heldout_sha256(
+    quick_results: dict[str, Any], heldout: tuple[Path, Path], tmp_path: Path
+) -> None:
+    meta = quick_results["meta"]
+    assert meta["model_sha256"] == {
+        "password_model": _digest(PASSWORD_MODEL_PATH),
+        "username_model": _digest(USERNAME_MODEL_PATH),
+    }
+    assert meta["heldout_sha256"] == {
+        "passwords": _digest(heldout[0]),
+        "usernames": _digest(heldout[1]),
+    }
+    assert run_all._sha256(tmp_path / "missing.tsv") is None
 
 
 def test_results_carry_no_plaintext_or_guesses(quick_results: dict[str, Any]) -> None:

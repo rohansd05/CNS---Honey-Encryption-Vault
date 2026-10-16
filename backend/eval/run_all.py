@@ -15,7 +15,8 @@ Owner: T1 -- Dhruv. Phase 2.
 * ``kdf`` -- Argon2id derive time and 8-entry unlock time for every KDF profile.
 * ``timing`` -- 8-entry unlock latency with the right vs a wrong master password per KDF
   profile, plus a two-sample Kolmogorov-Smirnov test (AGENTS.md §1.2: no timing difference).
-* ``meta`` -- commit, timestamp, model ids, dataset note, run configuration.
+* ``meta`` -- commit, timestamp, model ids, dataset note, run configuration, and sha256 digests
+  of the loaded model files and the held-out files (``null`` for a missing held-out file).
 
 The file also carries the keys the frontend Evaluation page reads (``timestamp``, ``version``,
 ``dataset``, ``distinguisher``, ``template_frequencies``, ``performance`` and the page-shaped
@@ -29,6 +30,7 @@ held-out (corpus) value -- only counts, rates and statistics (data/README.md).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -63,7 +65,10 @@ DEFAULT_HELDOUT_PASSWORDS = chi_squared.DEFAULT_HELDOUT_PASSWORDS
 DEFAULT_HELDOUT_USERNAMES = chi_squared.DEFAULT_HELDOUT_USERNAMES
 
 RESULTS_VERSION = "1.0.0"
-DATASET_NOTE = "SecLists RockYou, Zipf-ranked weights; usernames: SecLists xato-net, Zipf-ranked"
+DATASET_NOTE = (
+    "passwords: RockYou rockyou-withcount, real counts (pcfg-password-v2); "
+    "usernames: SecLists xato-net, Zipf-ranked (pcfg-username-v1)"
+)
 TARGET_ACCURACY = 0.60
 IDEAL_ACCURACY = 0.50
 TARGET_UNLOCK_P95_MS = 1500
@@ -703,6 +708,22 @@ def _git_commit() -> str | None:
     return result.stdout.strip() or None
 
 
+def _sha256(path: Path) -> str | None:
+    """Hex SHA-256 of the file at ``path`` (digest only, never contents); ``None`` if missing."""
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        while chunk := fh.read(1 << 20):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _model_file(model: Any) -> Path:
+    """The file the real loader read: ``load_default`` parses the class's ``default_model_path``."""
+    return Path(type(model).default_model_path)
+
+
 def _rel(path: Path) -> str:
     try:
         return path.resolve().relative_to(REPO).as_posix()
@@ -808,6 +829,14 @@ def build_results(
             "entry_dte_impl": core.entry_dte_impl,
             "honeycore_impl": "real",
             "dataset_note": DATASET_NOTE,
+            "model_sha256": {
+                "password_model": _sha256(_model_file(core.password_model)),
+                "username_model": _sha256(_model_file(core.username_model)),
+            },
+            "heldout_sha256": {
+                "passwords": _sha256(heldout_passwords),
+                "usernames": _sha256(heldout_usernames),
+            },
             "python": platform.python_version(),
             "platform": platform.platform(terse=True),
             "step_seconds": timings,
