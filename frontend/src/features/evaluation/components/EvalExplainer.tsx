@@ -135,7 +135,7 @@ export function EvalExplainer() {
                 <span>2. Chi-Squared & Codec Control</span>
               </div>
               <p className="text-text-secondary leading-normal">
-                Pearson χ² tests evaluate seed uniformity and template goodness-of-fit. When held-out passwords fail uniformity due to real-world frequency divergence, the <strong>codec control</strong> tests model samples to prove the encoder is unbiased.
+                Pearson χ² tests evaluate seed distributions: the byte and int tests check the raw seed bits and the codec control shows the encoder is unbiased; the PIT test measures whether real values follow the model, and the current models do not pass it (see the evaluation report §4.2).
               </p>
             </div>
 
@@ -208,7 +208,7 @@ export function EvalExplainer() {
               <strong>Round-Trip Invertibility:</strong> For every valid printable ASCII credential pair $(u, p)$, <code className="font-mono text-text-primary">decode(encode(u, p)) == (u, p)</code>, verified with 100% exact match across all trials.
             </li>
             <li>
-              <strong>Decode Totality:</strong> Every 532-byte uniform sequence decodes to printable ASCII strings without exceptions, ensuring wrong master passwords never trigger decryption errors or timing anomalies.
+              <strong>Decode Totality:</strong> Every 532-byte uniform sequence decodes to printable ASCII strings without exceptions, so a wrong master password never causes a decryption error. Timing is measured separately (right vs wrong master password, KS test) in the Timing chart.
             </li>
           </ul>
         </AccordionItem>

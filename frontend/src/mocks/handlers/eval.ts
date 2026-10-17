@@ -4,16 +4,16 @@ import type { EvalSummaryResponse } from '@/api/types';
 
 // Exact copy of backend/eval/results/latest.json
 export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
-  "timestamp": "2026-10-14T16:11:22Z",
+  "timestamp": "2026-10-17T08:30:07Z",
   "version": "1.0.0",
   "dataset": {
-    "corpus": "SecLists RockYou, Zipf-ranked weights; usernames: SecLists xato-net, Zipf-ranked",
+    "corpus": "passwords: RockYou rockyou-withcount, real counts (pcfg-password-v2); usernames: SecLists xato-net, Zipf-ranked (pcfg-username-v1)",
     "training_samples": null,
     "test_samples": 50000,
     "heldout_passwords_file": "data/processed/heldout_passwords.tsv",
     "heldout_usernames_file": "data/processed/heldout_usernames.tsv",
     "models": {
-      "password_model": "pcfg-password-v1",
+      "password_model": "pcfg-password-v2",
       "username_model": "pcfg-username-v1",
       "entry_seed_len": 532
     }
@@ -76,34 +76,50 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
     "alpha": 0.05,
     "interpretation": "p > 0.05: no evidence of deviation (uniform seeds / decoys follow the model)",
     "password": {
-      "model": "pcfg-password-v1",
+      "model": "pcfg-password-v2",
       "seed_byte_uniformity": {
         "test": "seed_byte_uniformity",
         "n": 20000,
-        "chi2": 434.4442181818182,
+        "chi2": 275.13299393939394,
         "dof": 255,
-        "p_value": 1.683666192325883e-11
+        "p_value": 0.18448540285225165
       },
       "seed_int_uniformity": {
         "test": "seed_int_uniformity",
         "n": 20000,
-        "chi2": 417.67069446178175,
+        "chi2": 9.367393466452452,
         "dof": 15,
-        "p_value": 1.3311233754473868e-79
+        "p_value": 0.8575376835775853
       },
       "seed_int_uniformity_control": {
         "test": "seed_int_uniformity_control",
         "n": 20000,
-        "chi2": 16.117458581993226,
+        "chi2": 7.120768554265357,
         "dof": 15,
-        "p_value": 0.37428853188827826
+        "p_value": 0.9542114010986245
+      },
+      "seed_pit_uniformity": {
+        "test": "seed_pit_uniformity",
+        "n": 20000,
+        "chi2": 1634.5230510289955,
+        "dof": 15,
+        "p_value": 0.0,
+        "ints": 130710
+      },
+      "seed_pit_uniformity_control": {
+        "test": "seed_pit_uniformity_control",
+        "n": 20000,
+        "chi2": 12.535152276670855,
+        "dof": 15,
+        "p_value": 0.6381536536104393,
+        "ints": 66852
       },
       "template_goodness_of_fit": {
         "test": "template_goodness_of_fit",
         "n": 20000,
-        "chi2": 36.40386773653889,
+        "chi2": 46.79357959715795,
         "dof": 50,
-        "p_value": 0.924881426235355
+        "p_value": 0.6028276562360018
       }
     },
     "username": {
@@ -111,23 +127,39 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       "seed_byte_uniformity": {
         "test": "seed_byte_uniformity",
         "n": 20000,
-        "chi2": 920.4524895522388,
+        "chi2": 717.5236776119403,
         "dof": 255,
-        "p_value": 5.065617465619962e-76
+        "p_value": 1.3674333494628661e-45
       },
       "seed_int_uniformity": {
         "test": "seed_int_uniformity",
         "n": 20000,
-        "chi2": 1364.8609026170423,
+        "chi2": 810.8409067314798,
         "dof": 15,
-        "p_value": 5.9926334056259406e-282
+        "p_value": 4.115190074027821e-163
       },
       "seed_int_uniformity_control": {
         "test": "seed_int_uniformity_control",
         "n": 20000,
-        "chi2": 21.20187025131502,
+        "chi2": 11.415904358608426,
         "dof": 15,
-        "p_value": 0.13050254820828155
+        "p_value": 0.7225931717401008
+      },
+      "seed_pit_uniformity": {
+        "test": "seed_pit_uniformity",
+        "n": 20000,
+        "chi2": 3008.926462415956,
+        "dof": 15,
+        "p_value": 0.0,
+        "ints": 163753
+      },
+      "seed_pit_uniformity_control": {
+        "test": "seed_pit_uniformity_control",
+        "n": 20000,
+        "chi2": 10.53004198977742,
+        "dof": 15,
+        "p_value": 0.7851422231236809,
+        "ints": 85497
       },
       "template_goodness_of_fit": {
         "test": "template_goodness_of_fit",
@@ -138,17 +170,17 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       }
     },
     "seed_uniformity": {
-      "statistic": 434.4442181818182,
+      "statistic": 275.13299393939394,
       "degrees_of_freedom": 255,
-      "p_value": 1.683666192325883e-11,
-      "null_hypothesis_accepted": false,
+      "p_value": 0.18448540285225165,
+      "null_hypothesis_accepted": true,
       "note": "Password model: bytes of seeds from encoding held-out passwords vs uniform (256 bins)",
       "n": 20000
     },
     "template_goodness_of_fit": {
-      "statistic": 36.40386773653889,
+      "statistic": 46.79357959715795,
       "degrees_of_freedom": 50,
-      "p_value": 0.924881426235355,
+      "p_value": 0.6028276562360018,
       "null_hypothesis_accepted": true,
       "note": "Password model: templates of decoded random seeds vs model probabilities",
       "n": 20000
@@ -158,132 +190,132 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
     "password": {
       "n": 10000,
       "logreg": {
-        "accuracy_mean": 0.5173,
-        "accuracy_std": 0.010240117186829465,
-        "roc_auc_mean": 0.527569475
+        "accuracy_mean": 0.50825,
+        "accuracy_std": 0.0072594765651525905,
+        "roc_auc_mean": 0.5171327499999999
       },
       "random_forest": {
-        "accuracy_mean": 0.7401500000000001,
-        "accuracy_std": 0.005129814811472232,
-        "roc_auc_mean": 0.8052428749999999
+        "accuracy_mean": 0.74075,
+        "accuracy_std": 0.006682065548915242,
+        "roc_auc_mean": 0.8151057500000001
       },
       "interpretation": "≈0.5 = indistinguishable",
       "grouped": {
         "n": 10000,
-        "distinct_strings": 11455,
+        "distinct_strings": 12287,
         "logreg": {
-          "accuracy_mean": 0.4619,
-          "accuracy_std": 0.061808292323926886,
-          "roc_auc_mean": 0.45409637499999994
+          "accuracy_mean": 0.4720514736282171,
+          "accuracy_std": 0.023916262318084327,
+          "roc_auc_mean": 0.4739740542624885
         },
         "random_forest": {
-          "accuracy_mean": 0.5167499999999999,
-          "accuracy_std": 0.04468333022504028,
-          "roc_auc_mean": 0.5091537999999999
+          "accuracy_mean": 0.5192507631937977,
+          "accuracy_std": 0.011235504709720194,
+          "roc_auc_mean": 0.5322153610152215
         }
       },
       "distinct": {
-        "n": 5687,
-        "distinct_real": 6007,
-        "distinct_decoy": 5687,
+        "n": 5632,
+        "distinct_real": 5632,
+        "distinct_decoy": 6721,
         "logreg": {
-          "accuracy_mean": 0.5437839697681385,
-          "accuracy_std": 0.0031756813160750343,
-          "roc_auc_mean": 0.5671294494047308
+          "accuracy_mean": 0.5458091007923913,
+          "accuracy_std": 0.011256157001513969,
+          "roc_auc_mean": 0.5563444098109371
         },
         "random_forest": {
-          "accuracy_mean": 0.5072088685281297,
-          "accuracy_std": 0.008716550394147574,
-          "roc_auc_mean": 0.5187300687784979
+          "accuracy_mean": 0.5190872797194032,
+          "accuracy_std": 0.004759488973529036,
+          "roc_auc_mean": 0.527602741168083
         }
       }
     },
     "username": {
       "n": 10000,
       "logreg": {
-        "accuracy_mean": 0.7337499999999999,
-        "accuracy_std": 0.0038470768123342967,
-        "roc_auc_mean": 0.7933458250000001
+        "accuracy_mean": 0.7134499999999999,
+        "accuracy_std": 0.007032780389006901,
+        "roc_auc_mean": 0.7430465250000001
       },
       "random_forest": {
-        "accuracy_mean": 0.827,
-        "accuracy_std": 0.005424481542046212,
-        "roc_auc_mean": 0.9147115250000001
+        "accuracy_mean": 0.82725,
+        "accuracy_std": 0.006659579566308986,
+        "roc_auc_mean": 0.9093595750000001
       },
       "interpretation": "≈0.5 = indistinguishable",
       "grouped": {
         "n": 10000,
-        "distinct_strings": 11998,
+        "distinct_strings": 12526,
         "logreg": {
-          "accuracy_mean": 0.72805,
-          "accuracy_std": 0.010856334556377696,
-          "roc_auc_mean": 0.7819294750000001
+          "accuracy_mean": 0.7127993427499589,
+          "accuracy_std": 0.00881860453292269,
+          "roc_auc_mean": 0.7158202597651587
         },
         "random_forest": {
-          "accuracy_mean": 0.5630499999999999,
-          "accuracy_std": 0.08797576370796673,
-          "roc_auc_mean": 0.7133034500000001
+          "accuracy_mean": 0.6297963773153986,
+          "accuracy_std": 0.05600515034476615,
+          "roc_auc_mean": 0.7222206112303967
         }
       },
       "distinct": {
-        "n": 4378,
-        "distinct_real": 4378,
-        "distinct_decoy": 7681,
+        "n": 4908,
+        "distinct_real": 4908,
+        "distinct_decoy": 7639,
         "logreg": {
-          "accuracy_mean": 0.7592501610299659,
-          "accuracy_std": 0.007141104400344822,
-          "roc_auc_mean": 0.7840525525203512
+          "accuracy_mean": 0.7333939593269788,
+          "accuracy_std": 0.005755255083362081,
+          "roc_auc_mean": 0.7768520432186388
         },
         "random_forest": {
-          "accuracy_mean": 0.6772497255319204,
-          "accuracy_std": 0.005947675527020168,
-          "roc_auc_mean": 0.7627338641217418
+          "accuracy_mean": 0.6968205591632576,
+          "accuracy_std": 0.011399189022139688,
+          "roc_auc_mean": 0.7689565882072424
         }
       },
       "without_domain": {
         "n": 10000,
         "logreg": {
-          "accuracy_mean": 0.57145,
-          "accuracy_std": 0.003909603560464944,
-          "roc_auc_mean": 0.6237055
+          "accuracy_mean": 0.5452,
+          "accuracy_std": 0.004817675788178367,
+          "roc_auc_mean": 0.5610938750000001
         },
         "random_forest": {
-          "accuracy_mean": 0.78265,
-          "accuracy_std": 0.00390704491911723,
-          "roc_auc_mean": 0.8626568499999999
+          "accuracy_mean": 0.7673500000000001,
+          "accuracy_std": 0.0065069193939989774,
+          "roc_auc_mean": 0.85406475
         },
         "interpretation": "≈0.5 = indistinguishable",
         "transformed": {
           "real": 0,
-          "decoy": 4554
+          "decoy": 4515
         },
         "grouped": {
           "n": 10000,
-          "distinct_strings": 10430,
+          "distinct_strings": 11101,
           "logreg": {
-            "accuracy_mean": 0.5533834341929114,
-            "accuracy_std": 0.05863205751438029,
-            "roc_auc_mean": 0.5749826455226292
+            "accuracy_mean": 0.5126526248157891,
+            "accuracy_std": 0.03936165587878883,
+            "roc_auc_mean": 0.5176013442553111
           },
           "random_forest": {
-            "accuracy_mean": 0.5459230610785871,
-            "accuracy_std": 0.09180538148790511,
-            "roc_auc_mean": 0.5618266066725874
+            "accuracy_mean": 0.5324942762902672,
+            "accuracy_std": 0.04511910893874989,
+            "roc_auc_mean": 0.5298718869381343
           }
         },
         "distinct": {
-          "n": 4378,
-          "distinct_real": 4378,
-          "distinct_decoy": 6153,
+          "n": 4908,
+          "distinct_real": 4908,
+          "distinct_decoy": 6219,
           "logreg": {
-            "accuracy_mean": 0.5574468209946566,
-            "accuracy_std": 0.010946732510834847,
-            "roc_auc_mean": 0.5796859804245711
+            "accuracy_mean": 0.5534821385032469,
+            "accuracy_std": 0.011339631877422771,
+            "roc_auc_mean": 0.5746655240135029
           },
           "random_forest": {
-            "accuracy_mean": 0.5277517217819432,
-            "accuracy_std": 0.011060822886659093,
-            "roc_auc_mean": 0.5383541959687485
+            "accuracy_mean": 0.5226165736180437,
+            "accuracy_std": 0.005554866514173579,
+            "roc_auc_mean": 0.5371162196170097
           }
         },
         "note": "known email domains (the username model's table) stripped from real and decoy values before features; same real sample, fresh decoys"
@@ -307,159 +339,159 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       "shannon_entropy"
     ],
     "metrics": {
-      "accuracy": 0.7401500000000001,
-      "roc_auc": 0.8052428749999999,
-      "precision": 0.7297618237894935,
-      "recall": 0.7617999999999999,
+      "accuracy": 0.74075,
+      "roc_auc": 0.8151057500000001,
+      "precision": 0.7279208145142988,
+      "recall": 0.7537,
       "baseline_chance": 0.5
     },
     "metrics_classifier": "random_forest",
     "per_classifier": {
       "logreg": {
-        "accuracy_mean": 0.5173,
-        "accuracy_std": 0.010240117186829465,
-        "roc_auc_mean": 0.527569475
+        "accuracy_mean": 0.50825,
+        "accuracy_std": 0.0072594765651525905,
+        "roc_auc_mean": 0.5171327499999999
       },
       "random_forest": {
-        "accuracy_mean": 0.7401500000000001,
-        "accuracy_std": 0.005129814811472232,
-        "roc_auc_mean": 0.8052428749999999
+        "accuracy_mean": 0.74075,
+        "accuracy_std": 0.006682065548915242,
+        "roc_auc_mean": 0.8151057500000001
       }
     },
     "grouped_results": {
       "logreg": {
-        "accuracy_mean": 0.4619,
-        "accuracy_std": 0.061808292323926886,
-        "roc_auc_mean": 0.45409637499999994
+        "accuracy_mean": 0.4720514736282171,
+        "accuracy_std": 0.023916262318084327,
+        "roc_auc_mean": 0.4739740542624885
       },
       "random_forest": {
-        "accuracy_mean": 0.5167499999999999,
-        "accuracy_std": 0.04468333022504028,
-        "roc_auc_mean": 0.5091537999999999
+        "accuracy_mean": 0.5192507631937977,
+        "accuracy_std": 0.011235504709720194,
+        "roc_auc_mean": 0.5322153610152215
       }
     },
     "distinct_results": {
       "logreg": {
-        "accuracy_mean": 0.5437839697681385,
-        "accuracy_std": 0.0031756813160750343,
-        "roc_auc_mean": 0.5671294494047308
+        "accuracy_mean": 0.5458091007923913,
+        "accuracy_std": 0.011256157001513969,
+        "roc_auc_mean": 0.5563444098109371
       },
       "random_forest": {
-        "accuracy_mean": 0.5072088685281297,
-        "accuracy_std": 0.008716550394147574,
-        "roc_auc_mean": 0.5187300687784979
+        "accuracy_mean": 0.5190872797194032,
+        "accuracy_std": 0.004759488973529036,
+        "roc_auc_mean": 0.527602741168083
       }
     },
     "n_per_class": 10000,
     "target_accuracy": 0.6,
     "ideal_accuracy": 0.5,
-    "conclusion": "Password distinguisher (random_forest) accuracy 0.740 vs ideal 0.5: misses the <= 0.60 target: the classifier separates real passwords from decoys. Best accuracy with grouped CV (no string in both train and test) 0.517; on distinct strings only 0.544."
+    "conclusion": "Password distinguisher (random_forest) accuracy 0.741 vs ideal 0.5: misses the <= 0.60 target: the classifier separates real passwords from decoys. Best accuracy with grouped CV (no string in both train and test) 0.519; on distinct strings only 0.546."
   },
   "template_frequencies": [
     {
       "template": "L6",
-      "model_frequency": 0.21192,
-      "decoded_frequency": 0.21015,
-      "heldout_frequency": 0.21335,
+      "model_frequency": 0.20184,
+      "decoded_frequency": 0.20135,
+      "heldout_frequency": 0.2214,
       "description": "6 letters"
     },
     {
       "template": "L7",
-      "model_frequency": 0.1262,
-      "decoded_frequency": 0.12665,
-      "heldout_frequency": 0.15065,
+      "model_frequency": 0.12474,
+      "decoded_frequency": 0.12365,
+      "heldout_frequency": 0.1107,
       "description": "7 letters"
     },
     {
       "template": "D6",
-      "model_frequency": 0.12018,
-      "decoded_frequency": 0.1212,
-      "heldout_frequency": 0.0905,
+      "model_frequency": 0.10843,
+      "decoded_frequency": 0.10825,
+      "heldout_frequency": 0.0911,
       "description": "6 digits"
     },
     {
       "template": "L8",
-      "model_frequency": 0.11334,
-      "decoded_frequency": 0.11095,
-      "heldout_frequency": 0.1133,
+      "model_frequency": 0.10273,
+      "decoded_frequency": 0.10595,
+      "heldout_frequency": 0.1173,
       "description": "8 letters"
     },
     {
       "template": "L9",
-      "model_frequency": 0.04878,
-      "decoded_frequency": 0.04835,
-      "heldout_frequency": 0.0421,
+      "model_frequency": 0.05083,
+      "decoded_frequency": 0.04945,
+      "heldout_frequency": 0.04825,
       "description": "9 letters"
     },
     {
       "template": "L5",
-      "model_frequency": 0.04296,
-      "decoded_frequency": 0.0438,
-      "heldout_frequency": 0.05835,
+      "model_frequency": 0.04807,
+      "decoded_frequency": 0.0504,
+      "heldout_frequency": 0.04585,
       "description": "5 letters"
     },
     {
       "template": "L6D1",
-      "model_frequency": 0.02644,
-      "decoded_frequency": 0.02625,
-      "heldout_frequency": 0.03155,
+      "model_frequency": 0.03174,
+      "decoded_frequency": 0.03255,
+      "heldout_frequency": 0.03055,
       "description": "6 letters + 1 digit"
     },
     {
-      "template": "D5",
-      "model_frequency": 0.02587,
-      "decoded_frequency": 0.0261,
-      "heldout_frequency": 0.0033,
-      "description": "5 digits"
-    },
-    {
       "template": "L6D2",
-      "model_frequency": 0.02369,
-      "decoded_frequency": 0.02505,
-      "heldout_frequency": 0.02725,
+      "model_frequency": 0.02864,
+      "decoded_frequency": 0.0286,
+      "heldout_frequency": 0.0303,
       "description": "6 letters + 2 digits"
     },
     {
-      "template": "L10",
-      "model_frequency": 0.02322,
-      "decoded_frequency": 0.02315,
-      "heldout_frequency": 0.02135,
-      "description": "10 letters"
-    },
-    {
       "template": "L5D2",
-      "model_frequency": 0.02201,
-      "decoded_frequency": 0.0244,
-      "heldout_frequency": 0.01985,
+      "model_frequency": 0.0267,
+      "decoded_frequency": 0.0236,
+      "heldout_frequency": 0.02885,
       "description": "5 letters + 2 digits"
     },
     {
+      "template": "L10",
+      "model_frequency": 0.02605,
+      "decoded_frequency": 0.02535,
+      "heldout_frequency": 0.02495,
+      "description": "10 letters"
+    },
+    {
       "template": "L5D1",
-      "model_frequency": 0.02112,
-      "decoded_frequency": 0.0221,
-      "heldout_frequency": 0.0272,
+      "model_frequency": 0.02518,
+      "decoded_frequency": 0.02525,
+      "heldout_frequency": 0.02355,
       "description": "5 letters + 1 digit"
     },
     {
-      "template": "D8",
-      "model_frequency": 0.02065,
-      "decoded_frequency": 0.0207,
-      "heldout_frequency": 0.01695,
-      "description": "8 digits"
-    },
-    {
       "template": "L4D2",
-      "model_frequency": 0.01949,
-      "decoded_frequency": 0.0196,
-      "heldout_frequency": 0.0187,
+      "model_frequency": 0.02357,
+      "decoded_frequency": 0.02465,
+      "heldout_frequency": 0.02375,
       "description": "4 letters + 2 digits"
     },
     {
       "template": "L7D1",
-      "model_frequency": 0.01863,
-      "decoded_frequency": 0.01885,
-      "heldout_frequency": 0.01955,
+      "model_frequency": 0.02239,
+      "decoded_frequency": 0.02195,
+      "heldout_frequency": 0.022,
       "description": "7 letters + 1 digit"
+    },
+    {
+      "template": "D8",
+      "model_frequency": 0.02051,
+      "decoded_frequency": 0.02105,
+      "heldout_frequency": 0.0226,
+      "description": "8 digits"
+    },
+    {
+      "template": "L8D1",
+      "model_frequency": 0.01285,
+      "decoded_frequency": 0.01275,
+      "heldout_frequency": 0.02025,
+      "description": "8 letters + 1 digit"
     }
   ],
   "attack": {
@@ -468,18 +500,18 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
     "wordlist": "attack/wordlists/demo_wordlist.txt",
     "wordlist_size": 629,
     "guesses": 500,
-    "real_guess_index": 193,
+    "real_guess_index": 467,
     "conventional": {
       "cracked": true,
-      "guess_index": 193,
-      "elapsed_ms": 1413,
+      "guess_index": 467,
+      "elapsed_ms": 3973,
       "recovered_entries": 8,
       "recovered_entries_are_real": true
     },
     "honey": {
       "guesses_tried": 500,
-      "elapsed_ms": 3580,
-      "ms_per_guess": 7.16,
+      "elapsed_ms": 3827,
+      "ms_per_guess": 7.65,
       "distinct_vaults": 500,
       "distinct_vault_rate": 1.0,
       "samples_returned": 25,
@@ -497,18 +529,18 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       },
       "reps": 15,
       "derive_ms": {
-        "p50": 85.1,
-        "p95": 202.02,
-        "mean": 98.74,
-        "min": 50.74,
-        "max": 231.59
+        "p50": 77.54,
+        "p95": 93.3,
+        "mean": 78.92,
+        "min": 68.81,
+        "max": 99.84
       },
       "unlock_ms": {
-        "p50": 54.48,
-        "p95": 151.5,
-        "mean": 70.05,
-        "min": 51.71,
-        "max": 167.09
+        "p50": 103.28,
+        "p95": 132.69,
+        "mean": 108.0,
+        "min": 95.31,
+        "max": 135.24
       }
     },
     "server_lite": {
@@ -520,18 +552,18 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       },
       "reps": 15,
       "derive_ms": {
-        "p50": 25.98,
-        "p95": 30.48,
-        "mean": 26.52,
-        "min": 25.33,
-        "max": 30.78
+        "p50": 41.45,
+        "p95": 49.08,
+        "mean": 42.4,
+        "min": 37.72,
+        "max": 58.24
       },
       "unlock_ms": {
-        "p50": 26.67,
-        "p95": 30.12,
-        "mean": 27.2,
-        "min": 25.47,
-        "max": 30.54
+        "p50": 37.07,
+        "p95": 40.79,
+        "mean": 37.4,
+        "min": 34.51,
+        "max": 41.17
       }
     },
     "demo": {
@@ -543,18 +575,18 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       },
       "reps": 15,
       "derive_ms": {
-        "p50": 7.5,
-        "p95": 12.68,
-        "mean": 8.5,
-        "min": 6.76,
-        "max": 23.22
+        "p50": 7.72,
+        "p95": 8.1,
+        "mean": 7.73,
+        "min": 7.46,
+        "max": 8.2
       },
       "unlock_ms": {
-        "p50": 7.47,
-        "p95": 8.23,
-        "mean": 7.47,
-        "min": 6.79,
-        "max": 8.25
+        "p50": 8.21,
+        "p95": 8.68,
+        "mean": 8.26,
+        "min": 7.96,
+        "max": 8.74
       }
     }
   },
@@ -566,95 +598,95 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
     "profiles": {
       "default": {
         "right_ms": {
-          "p50": 53.18,
-          "p95": 195.78,
-          "mean": 77.9,
-          "min": 41.09,
-          "max": 478.0
+          "p50": 85.16,
+          "p95": 101.83,
+          "mean": 87.56,
+          "min": 76.27,
+          "max": 116.02
         },
         "wrong_ms": {
-          "p50": 53.67,
-          "p95": 199.73,
-          "mean": 80.69,
-          "min": 40.84,
-          "max": 653.2
+          "p50": 84.57,
+          "p95": 105.2,
+          "mean": 87.66,
+          "min": 74.41,
+          "max": 150.11
         },
-        "ks_statistic": 0.06000000000000005,
-        "ks_p_value": 0.8655265369450457,
+        "ks_statistic": 0.08500000000000002,
+        "ks_p_value": 0.46628639073563594,
         "same_distribution": true,
-        "control_ks_p_value": 0.46628639073563594
+        "control_ks_p_value": 0.39352743357720954
       },
       "server_lite": {
         "right_ms": {
-          "p50": 27.3,
-          "p95": 54.6,
-          "mean": 32.68,
-          "min": 21.05,
-          "max": 150.26
+          "p50": 30.5,
+          "p95": 37.11,
+          "mean": 31.6,
+          "min": 29.18,
+          "max": 45.1
         },
         "wrong_ms": {
-          "p50": 27.17,
-          "p95": 52.69,
-          "mean": 32.45,
-          "min": 20.89,
-          "max": 150.51
+          "p50": 30.5,
+          "p95": 36.64,
+          "mean": 31.39,
+          "min": 29.21,
+          "max": 41.63
         },
-        "ks_statistic": 0.09000000000000002,
-        "ks_p_value": 0.39352743357720954,
+        "ks_statistic": 0.12000000000000002,
+        "ks_p_value": 0.11228360286766195,
         "same_distribution": true,
-        "control_ks_p_value": 0.9646522162314058
+        "control_ks_p_value": 0.6284308022715471
       },
       "demo": {
         "right_ms": {
-          "p50": 5.98,
+          "p50": 7.51,
           "p95": 8.34,
-          "mean": 6.63,
-          "min": 5.28,
-          "max": 37.86
+          "mean": 7.57,
+          "min": 7.16,
+          "max": 9.1
         },
         "wrong_ms": {
-          "p50": 5.93,
-          "p95": 7.78,
-          "mean": 6.23,
-          "min": 5.18,
-          "max": 10.14
+          "p50": 7.38,
+          "p95": 8.11,
+          "mean": 7.43,
+          "min": 7.0,
+          "max": 9.54
         },
-        "ks_statistic": 0.125,
-        "ks_p_value": 0.0878382826713132,
-        "same_distribution": true,
-        "control_ks_p_value": 0.1420746514551761
+        "ks_statistic": 0.31,
+        "ks_p_value": 6.865581733487208e-09,
+        "same_distribution": false,
+        "control_ks_p_value": 0.7933622419382523
       }
     },
     "decode_only_us": {
       "rounds": 2000,
       "real_seeds": {
-        "p50": 86.5,
-        "p95": 109.22,
-        "mean": 89.99,
-        "min": 82.8,
-        "max": 204.3
+        "p50": 123.4,
+        "p95": 188.31,
+        "mean": 131.05,
+        "min": 119.1,
+        "max": 461.2
       },
       "random_seeds": {
-        "p50": 44.9,
-        "p95": 54.41,
-        "mean": 46.44,
-        "min": 37.6,
-        "max": 117.2
+        "p50": 67.8,
+        "p95": 99.3,
+        "mean": 71.26,
+        "min": 55.9,
+        "max": 244.4
       },
       "ks_p_value": 0.0
     }
   },
   "performance": {
-    "unlock_p50_ms": 54.48,
-    "unlock_p95_ms": 151.5,
+    "unlock_p50_ms": 103.28,
+    "unlock_p95_ms": 132.69,
     "target_p95_ms": 1500,
     "argon2_kdf_profile": "default (t=3, m=64 MiB, p=4)",
     "entries": 8,
     "measured": "in-process HoneyVault.unlock (no HTTP); see kdf for every profile"
   },
   "meta": {
-    "git_commit": "91e3171",
-    "timestamp": "2026-10-14T16:11:22Z",
+    "git_commit": "516b425",
+    "timestamp": "2026-10-17T08:30:07Z",
     "mode": "full",
     "seed": 7,
     "config": {
@@ -670,25 +702,33 @@ export const MOCK_EVAL_SUMMARY: EvalSummaryResponse = {
       "timing_n": 200
     },
     "models": {
-      "password_model": "pcfg-password-v1",
+      "password_model": "pcfg-password-v2",
       "username_model": "pcfg-username-v1",
       "entry_seed_len": 532
     },
     "entry_dte_impl": "honeycore.dte.entry_dte.PCFGEntryDTE",
     "honeycore_impl": "real",
-    "dataset_note": "SecLists RockYou, Zipf-ranked weights; usernames: SecLists xato-net, Zipf-ranked",
+    "dataset_note": "passwords: RockYou rockyou-withcount, real counts (pcfg-password-v2); usernames: SecLists xato-net, Zipf-ranked (pcfg-username-v1)",
+    "model_sha256": {
+      "password_model": "8b225bb35d85624a2da1f4a3611574f2895336030660f2a838a63a3f159e76a6",
+      "username_model": "ec5ffa2dfe40b0f469e8fe1ec74b37f67eb7b03e720edbe3abe9f89a57a26578"
+    },
+    "heldout_sha256": {
+      "passwords": "c7bb2093aa39e0956e6a657de566325e667ea7bc809d43c122c5f78a792272ff",
+      "usernames": "29355460e52169cd3310b863f8ce42f4dadaa4a2aa6b5df6de7a4b5f3dc46629"
+    },
     "python": "3.12.10",
     "platform": "Windows-11",
     "step_seconds": {
-      "round_trip": 3.03,
-      "chi_squared": 7.51,
-      "template_frequencies": 0.39,
-      "classifier": 112.85,
-      "attack": 5.33,
-      "kdf": 4.96,
-      "timing": 73.65
+      "round_trip": 4.28,
+      "chi_squared": 16.94,
+      "template_frequencies": 0.6,
+      "classifier": 157.1,
+      "attack": 8.14,
+      "kdf": 5.72,
+      "timing": 77.59
     },
-    "duration_s": 208.47,
+    "duration_s": 271.38,
     "reproducibility": "held-out sampling, random seeds and CV folds use NumPy RNG(seed); decoys (model.sample), vault salts/nonces and the attack password use `secrets`, so classifier/attack numbers vary slightly between runs"
   }
 };

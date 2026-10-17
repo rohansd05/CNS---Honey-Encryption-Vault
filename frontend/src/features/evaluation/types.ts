@@ -58,6 +58,7 @@ export interface ChiSquaredTestResult {
   test?: string;
   chi2?: number;
   dof?: number;
+  ints?: number;
 }
 
 export interface ChiSquaredModelTests {
@@ -66,6 +67,8 @@ export interface ChiSquaredModelTests {
   seed_byte_uniformity?: ChiSquaredTestResult;
   seed_int_uniformity?: ChiSquaredTestResult;
   seed_int_uniformity_control?: ChiSquaredTestResult;
+  seed_pit_uniformity?: ChiSquaredTestResult;
+  seed_pit_uniformity_control?: ChiSquaredTestResult;
   template_goodness_of_fit?: ChiSquaredTestResult;
 }
 
@@ -237,6 +240,8 @@ export interface EvalMeta {
   entry_dte_impl?: string;
   honeycore_impl?: string;
   dataset_note?: string;
+  model_sha256?: Record<string, string>;
+  heldout_sha256?: Record<string, string>;
   python?: string;
   platform?: string;
   step_seconds?: Record<string, number>;

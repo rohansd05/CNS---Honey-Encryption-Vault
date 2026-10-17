@@ -20,6 +20,7 @@ interface EvalKpiCardsProps {
 
 function formatPValue(p: number | undefined): string {
   if (p === undefined) return 'N/A';
+  if (p <= 1e-300) return '< 1e-300';
   if (p < 0.001) {
     const exp = p.toExponential(1);
     return exp.replace('e', ' × 10^');
@@ -58,10 +59,16 @@ export function EvalKpiCards({ data }: EvalKpiCardsProps) {
 
   // Card 3 values
   const alpha = data.chi_squared.alpha ?? 0.05;
+  const isPit = data.chi_squared.password?.seed_pit_uniformity !== undefined;
+  const seedTestLabel = isPit ? 'PIT' : 'Byte';
   const seedP =
+    data.chi_squared.password?.seed_pit_uniformity?.p_value ??
     data.chi_squared.password?.seed_byte_uniformity?.p_value ??
     data.chi_squared.seed_uniformity?.p_value;
-  const controlP = data.chi_squared.password?.seed_int_uniformity_control?.p_value;
+  const controlP = isPit
+    ? (data.chi_squared.password?.seed_pit_uniformity_control?.p_value ??
+       data.chi_squared.password?.seed_int_uniformity_control?.p_value)
+    : data.chi_squared.password?.seed_int_uniformity_control?.p_value;
   const templateP =
     data.chi_squared.password?.template_goodness_of_fit?.p_value ??
     data.chi_squared.template_goodness_of_fit?.p_value;
@@ -205,7 +212,7 @@ export function EvalKpiCards({ data }: EvalKpiCardsProps) {
           <Card className="h-full border-border bg-bg-surface hover:border-accent/40 transition-all duration-200 shadow-card relative overflow-hidden group">
             <div
               className={`absolute top-0 left-0 right-0 h-1 ${
-                seedPass ? 'bg-gradient-to-r from-blue-500 to-cyan-400' : 'bg-amber-500'
+                seedPass ? 'bg-gradient-to-r from-blue-500 to-cyan-400' : 'bg-red-500'
               }`}
             />
             <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
@@ -221,7 +228,7 @@ export function EvalKpiCards({ data }: EvalKpiCardsProps) {
                       </button>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      Evaluates encoded seed uniformity (p &gt; 0.05) and decoded template goodness-of-fit. Held-out seed uniformity fails due to model fit, while the integer codec control passes honestly.
+                      Evaluates encoded {seedTestLabel.toLowerCase()} seed uniformity (p &gt; {alpha}) and decoded template goodness-of-fit. Held-out seed uniformity fails due to model fit, while the integer codec control passes honestly.
                     </TooltipContent>
                   </Tooltip>
                 </div>
@@ -233,21 +240,21 @@ export function EvalKpiCards({ data }: EvalKpiCardsProps) {
               <div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-extrabold text-text-primary tracking-tight font-mono">
-                    {seedPass ? `p=${formatPValue(seedP)}` : 'Seed: FAIL'}
+                    {seedPass ? `${seedTestLabel} p=${formatPValue(seedP)}` : `${seedTestLabel}: FAIL`}
                   </span>
                   <Badge
                     variant="outline"
                     className={
                       seedPass
                         ? 'bg-success/15 text-success border-success/30 text-[11px] font-semibold'
-                        : 'bg-amber-500/15 text-amber-500 border-amber-500/30 text-[11px] font-semibold'
+                        : 'bg-red-500/15 text-red-400 border-red-500/30 text-[11px] font-semibold'
                     }
                   >
-                    {seedPass ? 'PASS (p > α)' : 'FAIL (p < α)'}
+                    {seedPass ? 'PASS (p > α)' : 'FAIL (p ≤ α)'}
                   </Badge>
                 </div>
                 <p className="text-xs text-text-secondary mt-1">
-                  Seed p = {formatPValue(seedP)} | Control p = {formatPValue(controlP)}
+                  {seedTestLabel} p = {formatPValue(seedP)} | Control p = {formatPValue(controlP)}
                 </p>
               </div>
 
