@@ -14,13 +14,22 @@ Honey encryption needs two things from a DTE, and each has a test here:
     from the model's probabilities (imperfect model fit). The report separates them with a
     control, ``seed_int_uniformity_control``: the same int test on values *sampled from the
     model*, which isolates the codec (it should pass whatever the model fit).
+    These two tests only see model misfit when a distribution's integer total ``T`` is close to
+    2^32: ``encode_choice`` writes ``r = v + T*k`` with uniform ``k``, so for small ``T`` the top
+    bits are mostly ``k`` and look uniform whatever ``v`` is (eval-report §4.2). The fit test that
+    works for any ``T`` is
+    - ``seed_pit_uniformity``: a randomized probability integral transform of every used int,
+      ``u = (r mod T + U) / T`` with ``U ~ Uniform[0, 1)``, 16 bins. ``u`` is exactly uniform
+      iff real choices follow the model's probabilities; ``seed_pit_uniformity_control`` runs it
+      on model samples and must pass for any model.
 (b) **Decoys follow the model.** ``template_goodness_of_fit`` decodes random seeds and compares
     the observed template counts with the model's template probabilities (top 50 templates +
     "other"; bins with expected count < 5 are merged into "other").
 
-Every test returns ``{"test", "n", "chi2", "dof", "p_value"}``. **p > 0.05 means no evidence of
-a deviation** at the 5% level; a tiny p means the test detected one. With large ``n`` even a
-small model/data mismatch gives a small p for (a) — report it honestly (§11).
+Every test returns ``{"test", "n", "chi2", "dof", "p_value"}`` (the PIT tests add ``"ints"``).
+**p > 0.05 means no evidence of a deviation** at the 5% level; a tiny p means the test detected
+one. With large ``n`` even a small model/data mismatch gives a small p for (a) — report it
+honestly (§11).
 
 Both the password and the username model are tested. ``run`` returns a JSON-serialisable dict;
 ``python -m eval.chi_squared`` prints it. Evaluation code (not ``honeycore``/``app``): sampling
@@ -35,11 +44,12 @@ from collections import Counter
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import numpy as np
 from scipy.stats import chisquare
 
-from honeycore.dte.int_codec import SeedReader
+from honeycore.dte.int_codec import SeedReader, decode_choice
 from honeycore.dte.pcfg import is_valid_field, template
 from honeycore.interfaces import INT_BYTES
 
@@ -51,6 +61,7 @@ ALPHA = 0.05
 TOP_TEMPLATES = 50
 MIN_EXPECTED = 5.0
 INT_TOP_BITS = 4
+PIT_BINS = 16
 OTHER = "other"
 INTERPRETATION = "p > 0.05: no evidence of deviation (uniform seeds / decoys follow the model)"
 
@@ -126,6 +137,43 @@ def seed_int_uniformity(model: Any, values: Iterable[str], n: int) -> dict:
     top = np.asarray(ints, dtype=np.uint64) >> np.uint64(32 - INT_TOP_BITS)
     counts = np.bincount(top.astype(np.int64), minlength=2**INT_TOP_BITS)
     return _result("seed_int_uniformity", len(chosen), counts, None)
+
+
+def seed_pit_uniformity(model: Any, values: Iterable[str], n: int, seed: int = 7) -> dict:
+    """Randomized PIT of every USED seed int, 16 bins (the fit test that works for any total T).
+
+    Each seed is decoded with ``decode_choice`` wrapped (eval only, ``honeycore`` unchanged) to
+    record ``(r mod T, T)`` per int; ``u = (r mod T + U) / T`` with ``U`` from a NumPy RNG seeded
+    by ``seed``. The result also has ``ints``, the number of ints counted.
+    """
+    chosen = _take_valid(values, n)
+    seeds = [model.encode(v) for v in chosen]
+    records: list[tuple[int, int]] = []
+
+    def recording(dist: Any, r: int) -> int:
+        records.append((r % dist.total, dist.total))
+        return decode_choice(dist, r)
+
+    # username_dte imports decode_choice by name for the email-domain choice
+    with (
+        patch("honeycore.dte.pcfg.decode_choice", recording),
+        patch("honeycore.dte.username_dte.decode_choice", recording),
+    ):
+        for s in seeds:
+            model.decode(s)
+    rv = np.asarray(records, dtype=float).reshape(-1, 2)
+    u = (rv[:, 0] + np.random.default_rng(seed).random(len(rv))) / rv[:, 1]
+    counts, _ = np.histogram(u, bins=PIT_BINS, range=(0.0, 1.0))
+    result = _result("seed_pit_uniformity", len(chosen), counts, None)
+    result["ints"] = len(rv)
+    return result
+
+
+def seed_pit_uniformity_control(model: Any, n: int, seed: int = 7) -> dict:
+    """``seed_pit_uniformity`` on ``n`` values sampled from the model: passes for any model."""
+    result = seed_pit_uniformity(model, (model.sample() for _ in range(n)), n, seed)
+    result["test"] = "seed_pit_uniformity_control"
+    return result
 
 
 # ---- (b) template goodness of fit -----------------------------------------------------------
@@ -219,10 +267,11 @@ def sample_heldout(path: str | Path, n: int, seed: int = 7) -> list[str]:
 
 
 def evaluate_model(model: Any, heldout: list[str], n: int, seed: int = 7) -> dict[str, Any]:
-    """All three tests for one model (``heldout`` = real values to encode), plus the codec control.
+    """Every test for one model (``heldout`` = real values to encode), plus the two controls.
 
     ``seed_int_uniformity_control`` encodes ``n`` values sampled from the model itself, so its
-    ints are uniform unless the integer codec is biased (see the module docstring).
+    ints are uniform unless the integer codec is biased; ``seed_pit_uniformity_control`` does the
+    same for the PIT test (see the module docstring).
     """
     control = seed_int_uniformity(model, (model.sample() for _ in range(n)), n)
     control["test"] = "seed_int_uniformity_control"
@@ -231,6 +280,8 @@ def evaluate_model(model: Any, heldout: list[str], n: int, seed: int = 7) -> dic
         "seed_byte_uniformity": seed_byte_uniformity(model, heldout, n),
         "seed_int_uniformity": seed_int_uniformity(model, heldout, n),
         "seed_int_uniformity_control": control,
+        "seed_pit_uniformity": seed_pit_uniformity(model, heldout, n, seed),
+        "seed_pit_uniformity_control": seed_pit_uniformity_control(model, n, seed),
         "template_goodness_of_fit": template_goodness_of_fit(model, n, seed=seed),
     }
 
@@ -246,7 +297,8 @@ def run(
 ) -> dict[str, Any]:
     """Run every chi-squared test on the password and username models (JSON-serialisable).
 
-    Models default to the committed ``pcfg_*_v1.json.gz``. ``n`` values are sampled from each
+    Models default to ``load_default()``: the committed ``pcfg_password_v2.json.gz`` and
+    ``pcfg_username_v1.json.gz``. ``n`` values are sampled from each
     held-out file and ``n`` random seeds are decoded per model.
     """
     if password_model is None:

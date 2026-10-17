@@ -367,8 +367,12 @@ def run_chi_squared(
             ),
             "username": {
                 "model": um.model_id,
-                "skipped": "seed_byte_uniformity / seed_int_uniformity: no held-out usernames",
+                "skipped": (
+                    "seed_byte_uniformity / seed_int_uniformity / seed_pit_uniformity: "
+                    "no held-out usernames"
+                ),
                 "seed_int_uniformity_control": control,
+                "seed_pit_uniformity_control": chi_squared.seed_pit_uniformity_control(um, n, seed),
                 "template_goodness_of_fit": chi_squared.template_goodness_of_fit(um, n, seed),
             },
         }

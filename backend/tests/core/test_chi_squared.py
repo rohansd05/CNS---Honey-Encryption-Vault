@@ -22,6 +22,8 @@ from eval.chi_squared import (
     sample_heldout,
     seed_byte_uniformity,
     seed_int_uniformity,
+    seed_pit_uniformity,
+    seed_pit_uniformity_control,
     template_goodness_of_fit,
 )
 from honeycore.dte.int_codec import SeedReader, SeedWriter
@@ -37,6 +39,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 RESULT_KEYS = {"test", "n", "chi2", "dof", "p_value"}
+PIT_KEYS = RESULT_KEYS | {"ints"}
 N = 300
 
 printable_no_at = st.text(
@@ -71,7 +74,7 @@ def values(model: Any) -> list[str]:
 
 
 def _check(result: dict, test: str, n: int, dof: int | None = None) -> None:
-    assert set(result) == RESULT_KEYS
+    assert set(result) == (PIT_KEYS if "pit" in test else RESULT_KEYS)
     assert result["test"] == test
     assert result["n"] == n
     assert math.isfinite(result["chi2"]) and result["chi2"] >= 0
@@ -131,6 +134,12 @@ def test_seed_byte_uniformity_shape(model: Any, values: list[str]) -> None:
 
 def test_seed_int_uniformity_shape(model: Any, values: list[str]) -> None:
     _check(seed_int_uniformity(model, values, N), "seed_int_uniformity", N, dof=15)
+
+
+def test_seed_pit_uniformity_shape(model: Any, values: list[str]) -> None:
+    result = seed_pit_uniformity(model, values, N)
+    _check(result, "seed_pit_uniformity", N, dof=15)
+    assert result["ints"] >= 2 * N  # at least the path and one more choice per value
 
 
 def test_template_goodness_of_fit_shape(model: Any) -> None:
@@ -213,6 +222,21 @@ def test_biased_decoder_fails_template_fit(model: Any) -> None:
     assert template_goodness_of_fit(BiasedDecoder(model), 2000)["p_value"] < 0.01
 
 
+# ---- PIT: fits any model's own samples, rejects misfit --------------------------------------
+
+
+def test_pit_control_passes(model: Any) -> None:
+    result = seed_pit_uniformity_control(model, N)
+    _check(result, "seed_pit_uniformity_control", N, dof=15)
+    assert result["p_value"] > 0.01
+
+
+def test_pit_rejects_values_skewed_to_one_template(model: Any) -> None:
+    """Every value has template L4D4: real choices far from the model's probabilities."""
+    skewed = [f"pass{i:04d}" for i in range(N)]
+    assert seed_pit_uniformity(model, skewed, N)["p_value"] < 0.01
+
+
 # ---- held-out sampling, run(), CLI ----------------------------------------------------------
 
 
@@ -259,6 +283,8 @@ def _check_report(report: dict, n: int) -> None:
         _check(section["seed_byte_uniformity"], "seed_byte_uniformity", n, dof=255)
         _check(section["seed_int_uniformity"], "seed_int_uniformity", n, dof=15)
         _check(section["seed_int_uniformity_control"], "seed_int_uniformity_control", n, dof=15)
+        _check(section["seed_pit_uniformity"], "seed_pit_uniformity", n, dof=15)
+        _check(section["seed_pit_uniformity_control"], "seed_pit_uniformity_control", n, dof=15)
         _check(section["template_goodness_of_fit"], "template_goodness_of_fit", n)
 
 

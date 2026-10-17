@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-16T18:35:22Z",
+  "timestamp": "2026-10-17T08:30:07Z",
   "version": "1.0.0",
   "dataset": {
     "corpus": "passwords: RockYou rockyou-withcount, real counts (pcfg-password-v2); usernames: SecLists xato-net, Zipf-ranked (pcfg-username-v1)",
@@ -75,23 +75,39 @@
       "seed_byte_uniformity": {
         "test": "seed_byte_uniformity",
         "n": 20000,
-        "chi2": 303.33023030303036,
+        "chi2": 275.13299393939394,
         "dof": 255,
-        "p_value": 0.02031901281134474
+        "p_value": 0.18448540285225165
       },
       "seed_int_uniformity": {
         "test": "seed_int_uniformity",
         "n": 20000,
-        "chi2": 9.961318950348097,
+        "chi2": 9.367393466452452,
         "dof": 15,
-        "p_value": 0.8221659804385777
+        "p_value": 0.8575376835775853
       },
       "seed_int_uniformity_control": {
         "test": "seed_int_uniformity_control",
         "n": 20000,
-        "chi2": 11.276296307374782,
+        "chi2": 7.120768554265357,
         "dof": 15,
-        "p_value": 0.7327735847120865
+        "p_value": 0.9542114010986245
+      },
+      "seed_pit_uniformity": {
+        "test": "seed_pit_uniformity",
+        "n": 20000,
+        "chi2": 1634.5230510289955,
+        "dof": 15,
+        "p_value": 0.0,
+        "ints": 130710
+      },
+      "seed_pit_uniformity_control": {
+        "test": "seed_pit_uniformity_control",
+        "n": 20000,
+        "chi2": 12.535152276670855,
+        "dof": 15,
+        "p_value": 0.6381536536104393,
+        "ints": 66852
       },
       "template_goodness_of_fit": {
         "test": "template_goodness_of_fit",
@@ -106,23 +122,39 @@
       "seed_byte_uniformity": {
         "test": "seed_byte_uniformity",
         "n": 20000,
-        "chi2": 724.0017194029851,
+        "chi2": 717.5236776119403,
         "dof": 255,
-        "p_value": 1.6630613663042949e-46
+        "p_value": 1.3674333494628661e-45
       },
       "seed_int_uniformity": {
         "test": "seed_int_uniformity",
         "n": 20000,
-        "chi2": 892.9776859049911,
+        "chi2": 810.8409067314798,
         "dof": 15,
-        "p_value": 1.1229227112343199e-180
+        "p_value": 4.115190074027821e-163
       },
       "seed_int_uniformity_control": {
         "test": "seed_int_uniformity_control",
         "n": 20000,
-        "chi2": 13.612449024900387,
+        "chi2": 11.415904358608426,
         "dof": 15,
-        "p_value": 0.5551013670202074
+        "p_value": 0.7225931717401008
+      },
+      "seed_pit_uniformity": {
+        "test": "seed_pit_uniformity",
+        "n": 20000,
+        "chi2": 3008.926462415956,
+        "dof": 15,
+        "p_value": 0.0,
+        "ints": 163753
+      },
+      "seed_pit_uniformity_control": {
+        "test": "seed_pit_uniformity_control",
+        "n": 20000,
+        "chi2": 10.53004198977742,
+        "dof": 15,
+        "p_value": 0.7851422231236809,
+        "ints": 85497
       },
       "template_goodness_of_fit": {
         "test": "template_goodness_of_fit",
@@ -133,10 +165,10 @@
       }
     },
     "seed_uniformity": {
-      "statistic": 303.33023030303036,
+      "statistic": 275.13299393939394,
       "degrees_of_freedom": 255,
-      "p_value": 0.02031901281134474,
-      "null_hypothesis_accepted": false,
+      "p_value": 0.18448540285225165,
+      "null_hypothesis_accepted": true,
       "note": "Password model: bytes of seeds from encoding held-out passwords vs uniform (256 bins)",
       "n": 20000
     },
@@ -153,132 +185,132 @@
     "password": {
       "n": 10000,
       "logreg": {
-        "accuracy_mean": 0.5136499999999999,
-        "accuracy_std": 0.005739337940912726,
-        "roc_auc_mean": 0.51814
+        "accuracy_mean": 0.50825,
+        "accuracy_std": 0.0072594765651525905,
+        "roc_auc_mean": 0.5171327499999999
       },
       "random_forest": {
-        "accuracy_mean": 0.7358,
-        "accuracy_std": 0.004342810150121691,
-        "roc_auc_mean": 0.8079379
+        "accuracy_mean": 0.74075,
+        "accuracy_std": 0.006682065548915242,
+        "roc_auc_mean": 0.8151057500000001
       },
       "interpretation": "≈0.5 = indistinguishable",
       "grouped": {
         "n": 10000,
-        "distinct_strings": 12353,
+        "distinct_strings": 12287,
         "logreg": {
-          "accuracy_mean": 0.4859995249530953,
-          "accuracy_std": 0.015298987316724737,
-          "roc_auc_mean": 0.4702006392411911
+          "accuracy_mean": 0.4720514736282171,
+          "accuracy_std": 0.023916262318084327,
+          "roc_auc_mean": 0.4739740542624885
         },
         "random_forest": {
-          "accuracy_mean": 0.5263514254469641,
-          "accuracy_std": 0.013340185666593722,
-          "roc_auc_mean": 0.5346254326156956
+          "accuracy_mean": 0.5192507631937977,
+          "accuracy_std": 0.011235504709720194,
+          "roc_auc_mean": 0.5322153610152215
         }
       },
       "distinct": {
         "n": 5632,
         "distinct_real": 5632,
-        "distinct_decoy": 6798,
+        "distinct_decoy": 6721,
         "logreg": {
-          "accuracy_mean": 0.541193151582378,
-          "accuracy_std": 0.0027341897019114367,
-          "roc_auc_mean": 0.5489872201722313
+          "accuracy_mean": 0.5458091007923913,
+          "accuracy_std": 0.011256157001513969,
+          "roc_auc_mean": 0.5563444098109371
         },
         "random_forest": {
-          "accuracy_mean": 0.505769808402296,
-          "accuracy_std": 0.0055548094764005275,
-          "roc_auc_mean": 0.5144781922207743
+          "accuracy_mean": 0.5190872797194032,
+          "accuracy_std": 0.004759488973529036,
+          "roc_auc_mean": 0.527602741168083
         }
       }
     },
     "username": {
       "n": 10000,
       "logreg": {
-        "accuracy_mean": 0.7184999999999999,
-        "accuracy_std": 0.00726636084983397,
-        "roc_auc_mean": 0.750315675
+        "accuracy_mean": 0.7134499999999999,
+        "accuracy_std": 0.007032780389006901,
+        "roc_auc_mean": 0.7430465250000001
       },
       "random_forest": {
-        "accuracy_mean": 0.8213000000000001,
-        "accuracy_std": 0.0026429150572805033,
-        "roc_auc_mean": 0.907609525
+        "accuracy_mean": 0.82725,
+        "accuracy_std": 0.006659579566308986,
+        "roc_auc_mean": 0.9093595750000001
       },
       "interpretation": "≈0.5 = indistinguishable",
       "grouped": {
         "n": 10000,
-        "distinct_strings": 12581,
+        "distinct_strings": 12526,
         "logreg": {
-          "accuracy_mean": 0.7182007305031707,
-          "accuracy_std": 0.004896627260801498,
-          "roc_auc_mean": 0.7189263013032378
+          "accuracy_mean": 0.7127993427499589,
+          "accuracy_std": 0.00881860453292269,
+          "roc_auc_mean": 0.7158202597651587
         },
         "random_forest": {
-          "accuracy_mean": 0.6296549777596862,
-          "accuracy_std": 0.03727050515136206,
-          "roc_auc_mean": 0.7316787922933355
+          "accuracy_mean": 0.6297963773153986,
+          "accuracy_std": 0.05600515034476615,
+          "roc_auc_mean": 0.7222206112303967
         }
       },
       "distinct": {
         "n": 4908,
         "distinct_real": 4908,
-        "distinct_decoy": 7696,
+        "distinct_decoy": 7639,
         "logreg": {
-          "accuracy_mean": 0.7364504535536758,
-          "accuracy_std": 0.00592140084925447,
-          "roc_auc_mean": 0.779514467838606
+          "accuracy_mean": 0.7333939593269788,
+          "accuracy_std": 0.005755255083362081,
+          "roc_auc_mean": 0.7768520432186388
         },
         "random_forest": {
-          "accuracy_mean": 0.6930523752558793,
-          "accuracy_std": 0.009905799814911888,
-          "roc_auc_mean": 0.7653988083558112
+          "accuracy_mean": 0.6968205591632576,
+          "accuracy_std": 0.011399189022139688,
+          "roc_auc_mean": 0.7689565882072424
         }
       },
       "without_domain": {
         "n": 10000,
         "logreg": {
-          "accuracy_mean": 0.5375,
-          "accuracy_std": 0.006276941930590095,
-          "roc_auc_mean": 0.5653950249999999
+          "accuracy_mean": 0.5452,
+          "accuracy_std": 0.004817675788178367,
+          "roc_auc_mean": 0.5610938750000001
         },
         "random_forest": {
-          "accuracy_mean": 0.772,
-          "accuracy_std": 0.0061583276950808894,
-          "roc_auc_mean": 0.8590270249999999
+          "accuracy_mean": 0.7673500000000001,
+          "accuracy_std": 0.0065069193939989774,
+          "roc_auc_mean": 0.85406475
         },
         "interpretation": "≈0.5 = indistinguishable",
         "transformed": {
           "real": 0,
-          "decoy": 4589
+          "decoy": 4515
         },
         "grouped": {
           "n": 10000,
-          "distinct_strings": 11024,
+          "distinct_strings": 11101,
           "logreg": {
-            "accuracy_mean": 0.51795,
-            "accuracy_std": 0.04513684747520591,
-            "roc_auc_mean": 0.53290185
+            "accuracy_mean": 0.5126526248157891,
+            "accuracy_std": 0.03936165587878883,
+            "roc_auc_mean": 0.5176013442553111
           },
           "random_forest": {
-            "accuracy_mean": 0.49755000000000005,
-            "accuracy_std": 0.04107779205361458,
-            "roc_auc_mean": 0.503151725
+            "accuracy_mean": 0.5324942762902672,
+            "accuracy_std": 0.04511910893874989,
+            "roc_auc_mean": 0.5298718869381343
           }
         },
         "distinct": {
           "n": 4908,
           "distinct_real": 4908,
-          "distinct_decoy": 6142,
+          "distinct_decoy": 6219,
           "logreg": {
-            "accuracy_mean": 0.5536867382627488,
-            "accuracy_std": 0.009528849847180651,
-            "roc_auc_mean": 0.5791776929136725
+            "accuracy_mean": 0.5534821385032469,
+            "accuracy_std": 0.011339631877422771,
+            "roc_auc_mean": 0.5746655240135029
           },
           "random_forest": {
-            "accuracy_mean": 0.5235338487061556,
-            "accuracy_std": 0.005029105174457775,
-            "roc_auc_mean": 0.5365217103107465
+            "accuracy_mean": 0.5226165736180437,
+            "accuracy_std": 0.005554866514173579,
+            "roc_auc_mean": 0.5371162196170097
           }
         },
         "note": "known email domains (the username model's table) stripped from real and decoy values before features; same real sample, fresh decoys"
@@ -302,53 +334,53 @@
       "shannon_entropy"
     ],
     "metrics": {
-      "accuracy": 0.7358,
-      "roc_auc": 0.8079379,
-      "precision": 0.726934358644532,
-      "recall": 0.7548,
+      "accuracy": 0.74075,
+      "roc_auc": 0.8151057500000001,
+      "precision": 0.7279208145142988,
+      "recall": 0.7537,
       "baseline_chance": 0.5
     },
     "metrics_classifier": "random_forest",
     "per_classifier": {
       "logreg": {
-        "accuracy_mean": 0.5136499999999999,
-        "accuracy_std": 0.005739337940912726,
-        "roc_auc_mean": 0.51814
+        "accuracy_mean": 0.50825,
+        "accuracy_std": 0.0072594765651525905,
+        "roc_auc_mean": 0.5171327499999999
       },
       "random_forest": {
-        "accuracy_mean": 0.7358,
-        "accuracy_std": 0.004342810150121691,
-        "roc_auc_mean": 0.8079379
+        "accuracy_mean": 0.74075,
+        "accuracy_std": 0.006682065548915242,
+        "roc_auc_mean": 0.8151057500000001
       }
     },
     "grouped_results": {
       "logreg": {
-        "accuracy_mean": 0.4859995249530953,
-        "accuracy_std": 0.015298987316724737,
-        "roc_auc_mean": 0.4702006392411911
+        "accuracy_mean": 0.4720514736282171,
+        "accuracy_std": 0.023916262318084327,
+        "roc_auc_mean": 0.4739740542624885
       },
       "random_forest": {
-        "accuracy_mean": 0.5263514254469641,
-        "accuracy_std": 0.013340185666593722,
-        "roc_auc_mean": 0.5346254326156956
+        "accuracy_mean": 0.5192507631937977,
+        "accuracy_std": 0.011235504709720194,
+        "roc_auc_mean": 0.5322153610152215
       }
     },
     "distinct_results": {
       "logreg": {
-        "accuracy_mean": 0.541193151582378,
-        "accuracy_std": 0.0027341897019114367,
-        "roc_auc_mean": 0.5489872201722313
+        "accuracy_mean": 0.5458091007923913,
+        "accuracy_std": 0.011256157001513969,
+        "roc_auc_mean": 0.5563444098109371
       },
       "random_forest": {
-        "accuracy_mean": 0.505769808402296,
-        "accuracy_std": 0.0055548094764005275,
-        "roc_auc_mean": 0.5144781922207743
+        "accuracy_mean": 0.5190872797194032,
+        "accuracy_std": 0.004759488973529036,
+        "roc_auc_mean": 0.527602741168083
       }
     },
     "n_per_class": 10000,
     "target_accuracy": 0.6,
     "ideal_accuracy": 0.5,
-    "conclusion": "Password distinguisher (random_forest) accuracy 0.736 vs ideal 0.5: misses the <= 0.60 target: the classifier separates real passwords from decoys. Best accuracy with grouped CV (no string in both train and test) 0.526; on distinct strings only 0.541."
+    "conclusion": "Password distinguisher (random_forest) accuracy 0.741 vs ideal 0.5: misses the <= 0.60 target: the classifier separates real passwords from decoys. Best accuracy with grouped CV (no string in both train and test) 0.519; on distinct strings only 0.546."
   },
   "template_frequencies": [
     {
@@ -463,18 +495,18 @@
     "wordlist": "attack/wordlists/demo_wordlist.txt",
     "wordlist_size": 629,
     "guesses": 500,
-    "real_guess_index": 252,
+    "real_guess_index": 467,
     "conventional": {
       "cracked": true,
-      "guess_index": 252,
-      "elapsed_ms": 1771,
+      "guess_index": 467,
+      "elapsed_ms": 3973,
       "recovered_entries": 8,
       "recovered_entries_are_real": true
     },
     "honey": {
       "guesses_tried": 500,
-      "elapsed_ms": 3516,
-      "ms_per_guess": 7.03,
+      "elapsed_ms": 3827,
+      "ms_per_guess": 7.65,
       "distinct_vaults": 500,
       "distinct_vault_rate": 1.0,
       "samples_returned": 25,
@@ -492,18 +524,18 @@
       },
       "reps": 15,
       "derive_ms": {
-        "p50": 52.73,
-        "p95": 108.12,
-        "mean": 62.89,
-        "min": 49.33,
-        "max": 179.8
+        "p50": 77.54,
+        "p95": 93.3,
+        "mean": 78.92,
+        "min": 68.81,
+        "max": 99.84
       },
       "unlock_ms": {
-        "p50": 51.11,
-        "p95": 54.13,
-        "mean": 51.5,
-        "min": 49.72,
-        "max": 55.62
+        "p50": 103.28,
+        "p95": 132.69,
+        "mean": 108.0,
+        "min": 95.31,
+        "max": 135.24
       }
     },
     "server_lite": {
@@ -515,18 +547,18 @@
       },
       "reps": 15,
       "derive_ms": {
-        "p50": 31.73,
-        "p95": 69.42,
-        "mean": 37.88,
-        "min": 25.19,
-        "max": 114.83
+        "p50": 41.45,
+        "p95": 49.08,
+        "mean": 42.4,
+        "min": 37.72,
+        "max": 58.24
       },
       "unlock_ms": {
-        "p50": 27.36,
-        "p95": 28.98,
-        "mean": 27.37,
-        "min": 25.39,
-        "max": 29.78
+        "p50": 37.07,
+        "p95": 40.79,
+        "mean": 37.4,
+        "min": 34.51,
+        "max": 41.17
       }
     },
     "demo": {
@@ -538,18 +570,18 @@
       },
       "reps": 15,
       "derive_ms": {
-        "p50": 7.2,
-        "p95": 10.77,
-        "mean": 7.79,
-        "min": 6.5,
-        "max": 15.84
+        "p50": 7.72,
+        "p95": 8.1,
+        "mean": 7.73,
+        "min": 7.46,
+        "max": 8.2
       },
       "unlock_ms": {
-        "p50": 10.21,
-        "p95": 35.71,
-        "mean": 15.19,
-        "min": 7.37,
-        "max": 54.76
+        "p50": 8.21,
+        "p95": 8.68,
+        "mean": 8.26,
+        "min": 7.96,
+        "max": 8.74
       }
     }
   },
@@ -561,95 +593,95 @@
     "profiles": {
       "default": {
         "right_ms": {
-          "p50": 52.01,
-          "p95": 145.26,
-          "mean": 63.67,
-          "min": 49.01,
-          "max": 294.11
+          "p50": 85.16,
+          "p95": 101.83,
+          "mean": 87.56,
+          "min": 76.27,
+          "max": 116.02
         },
         "wrong_ms": {
-          "p50": 51.87,
-          "p95": 140.81,
-          "mean": 60.72,
-          "min": 49.39,
-          "max": 219.55
+          "p50": 84.57,
+          "p95": 105.2,
+          "mean": 87.66,
+          "min": 74.41,
+          "max": 150.11
         },
-        "ks_statistic": 0.06500000000000006,
-        "ks_p_value": 0.7933622419382523,
+        "ks_statistic": 0.08500000000000002,
+        "ks_p_value": 0.46628639073563594,
         "same_distribution": true,
-        "control_ks_p_value": 0.9973277498238406
+        "control_ks_p_value": 0.39352743357720954
       },
       "server_lite": {
         "right_ms": {
-          "p50": 22.72,
-          "p95": 31.58,
-          "mean": 25.66,
-          "min": 20.55,
-          "max": 160.53
+          "p50": 30.5,
+          "p95": 37.11,
+          "mean": 31.6,
+          "min": 29.18,
+          "max": 45.1
         },
         "wrong_ms": {
-          "p50": 22.65,
-          "p95": 30.52,
-          "mean": 23.93,
-          "min": 20.36,
-          "max": 39.6
+          "p50": 30.5,
+          "p95": 36.64,
+          "mean": 31.39,
+          "min": 29.21,
+          "max": 41.63
         },
-        "ks_statistic": 0.07000000000000006,
-        "ks_p_value": 0.7125821300149116,
+        "ks_statistic": 0.12000000000000002,
+        "ks_p_value": 0.11228360286766195,
         "same_distribution": true,
-        "control_ks_p_value": 0.8655265369450457
+        "control_ks_p_value": 0.6284308022715471
       },
       "demo": {
         "right_ms": {
-          "p50": 5.62,
-          "p95": 6.22,
-          "mean": 5.69,
-          "min": 5.3,
-          "max": 7.71
+          "p50": 7.51,
+          "p95": 8.34,
+          "mean": 7.57,
+          "min": 7.16,
+          "max": 9.1
         },
         "wrong_ms": {
-          "p50": 5.56,
-          "p95": 6.05,
-          "mean": 5.61,
-          "min": 5.23,
-          "max": 6.88
+          "p50": 7.38,
+          "p95": 8.11,
+          "mean": 7.43,
+          "min": 7.0,
+          "max": 9.54
         },
-        "ks_statistic": 0.18500000000000003,
-        "ks_p_value": 0.0020827633834865906,
+        "ks_statistic": 0.31,
+        "ks_p_value": 6.865581733487208e-09,
         "same_distribution": false,
-        "control_ks_p_value": 0.39352743357720954
+        "control_ks_p_value": 0.7933622419382523
       }
     },
     "decode_only_us": {
       "rounds": 2000,
       "real_seeds": {
-        "p50": 84.3,
-        "p95": 138.8,
-        "mean": 97.79,
-        "min": 79.3,
-        "max": 3455.7
+        "p50": 123.4,
+        "p95": 188.31,
+        "mean": 131.05,
+        "min": 119.1,
+        "max": 461.2
       },
       "random_seeds": {
-        "p50": 45.4,
-        "p95": 60.5,
-        "mean": 50.26,
-        "min": 37.7,
-        "max": 961.8
+        "p50": 67.8,
+        "p95": 99.3,
+        "mean": 71.26,
+        "min": 55.9,
+        "max": 244.4
       },
       "ks_p_value": 0.0
     }
   },
   "performance": {
-    "unlock_p50_ms": 51.11,
-    "unlock_p95_ms": 54.13,
+    "unlock_p50_ms": 103.28,
+    "unlock_p95_ms": 132.69,
     "target_p95_ms": 1500,
     "argon2_kdf_profile": "default (t=3, m=64 MiB, p=4)",
     "entries": 8,
     "measured": "in-process HoneyVault.unlock (no HTTP); see kdf for every profile"
   },
   "meta": {
-    "git_commit": "ec8052b",
-    "timestamp": "2026-10-16T18:35:22Z",
+    "git_commit": "516b425",
+    "timestamp": "2026-10-17T08:30:07Z",
     "mode": "full",
     "seed": 7,
     "config": {
@@ -683,15 +715,15 @@
     "python": "3.12.10",
     "platform": "Windows-11",
     "step_seconds": {
-      "round_trip": 3.35,
-      "chi_squared": 9.0,
-      "template_frequencies": 0.37,
-      "classifier": 133.26,
-      "attack": 5.6,
-      "kdf": 4.04,
-      "timing": 56.64
+      "round_trip": 4.28,
+      "chi_squared": 16.94,
+      "template_frequencies": 0.6,
+      "classifier": 157.1,
+      "attack": 8.14,
+      "kdf": 5.72,
+      "timing": 77.59
     },
-    "duration_s": 213.08,
+    "duration_s": 271.38,
     "reproducibility": "held-out sampling, random seeds and CV folds use NumPy RNG(seed); decoys (model.sample), vault salts/nonces and the attack password use `secrets`, so classifier/attack numbers vary slightly between runs"
   }
 }
