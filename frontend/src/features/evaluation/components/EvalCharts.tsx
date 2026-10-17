@@ -48,6 +48,7 @@ interface ProtocolComparisonItem {
 
 function formatPValue(p: number | undefined): string {
   if (p === undefined) return 'N/A';
+  if (p <= 1e-300) return '< 1e-300';
   if (p < 0.001) {
     const exp = p.toExponential(1);
     return exp.replace('e', ' × 10^');
@@ -248,12 +249,12 @@ export function EvalCharts({ data }: EvalChartsProps) {
       const p = pw.seed_byte_uniformity.p_value;
       items.push({
         test: 'Password: Seed Byte Uniformity (Held-out)',
-        pValue: p,
+        pValue: Math.max(p, 1e-300),
         stat:
           pw.seed_byte_uniformity.chi2 !== undefined
             ? pw.seed_byte_uniformity.chi2.toFixed(1)
             : 'N/A',
-        df: pw.seed_byte_uniformity.dof ?? 255,
+        df: pw.seed_byte_uniformity.dof ?? pw.seed_byte_uniformity.degrees_of_freedom ?? 255,
         pass: p > alpha,
         isControl: false,
         description: 'Encoded held-out password bytes vs uniform (256 bins)',
@@ -262,9 +263,14 @@ export function EvalCharts({ data }: EvalChartsProps) {
       const su = data.chi_squared.seed_uniformity;
       items.push({
         test: 'Seed Uniformity (Held-out)',
-        pValue: su.p_value,
-        stat: su.statistic !== undefined ? su.statistic.toFixed(1) : 'N/A',
-        df: su.degrees_of_freedom ?? 255,
+        pValue: Math.max(su.p_value, 1e-300),
+        stat:
+          su.statistic !== undefined
+            ? su.statistic.toFixed(1)
+            : su.chi2 !== undefined
+              ? su.chi2.toFixed(1)
+              : 'N/A',
+        df: su.dof ?? su.degrees_of_freedom ?? 255,
         pass: su.p_value > alpha,
         isControl: false,
         description: su.note ?? 'Encoded held-out password seeds vs uniform',
@@ -275,12 +281,12 @@ export function EvalCharts({ data }: EvalChartsProps) {
       const p = pw.seed_int_uniformity.p_value;
       items.push({
         test: 'Password: Seed Int Uniformity (Held-out)',
-        pValue: p,
+        pValue: Math.max(p, 1e-300),
         stat:
           pw.seed_int_uniformity.chi2 !== undefined
             ? pw.seed_int_uniformity.chi2.toFixed(1)
             : 'N/A',
-        df: pw.seed_int_uniformity.dof ?? 15,
+        df: pw.seed_int_uniformity.dof ?? pw.seed_int_uniformity.degrees_of_freedom ?? 15,
         pass: p > alpha,
         isControl: false,
         description: 'Encoded held-out password ints (top 4 bits, 16 bins)',
@@ -291,15 +297,52 @@ export function EvalCharts({ data }: EvalChartsProps) {
       const p = pw.seed_int_uniformity_control.p_value;
       items.push({
         test: 'Password: Codec Control (Model Samples)',
-        pValue: p,
+        pValue: Math.max(p, 1e-300),
         stat:
           pw.seed_int_uniformity_control.chi2 !== undefined
             ? pw.seed_int_uniformity_control.chi2.toFixed(1)
             : 'N/A',
-        df: pw.seed_int_uniformity_control.dof ?? 15,
+        df: pw.seed_int_uniformity_control.dof ?? pw.seed_int_uniformity_control.degrees_of_freedom ?? 15,
         pass: p > alpha,
         isControl: true,
         description: 'Codec control: model samples encoded through codec (16 bins)',
+      });
+    }
+
+    if (pw?.seed_pit_uniformity) {
+      const p = pw.seed_pit_uniformity.p_value;
+      items.push({
+        test: 'Password: Seed PIT Uniformity (Held-out)',
+        pValue: Math.max(p, 1e-300),
+        stat:
+          pw.seed_pit_uniformity.chi2 !== undefined
+            ? pw.seed_pit_uniformity.chi2.toFixed(1)
+            : 'N/A',
+        df: pw.seed_pit_uniformity.dof ?? pw.seed_pit_uniformity.degrees_of_freedom ?? 15,
+        pass: p > alpha,
+        isControl: false,
+        description:
+          'Randomized PIT of every used seed int vs uniform (works for any distribution total)',
+      });
+    }
+
+    if (pw?.seed_pit_uniformity_control) {
+      const p = pw.seed_pit_uniformity_control.p_value;
+      items.push({
+        test: 'Password: PIT Codec Control (Model Samples)',
+        pValue: Math.max(p, 1e-300),
+        stat:
+          pw.seed_pit_uniformity_control.chi2 !== undefined
+            ? pw.seed_pit_uniformity_control.chi2.toFixed(1)
+            : 'N/A',
+        df:
+          pw.seed_pit_uniformity_control.dof ??
+          pw.seed_pit_uniformity_control.degrees_of_freedom ??
+          15,
+        pass: p > alpha,
+        isControl: true,
+        description:
+          'Randomized PIT of every used seed int vs uniform (works for any distribution total)',
       });
     }
 
@@ -307,12 +350,12 @@ export function EvalCharts({ data }: EvalChartsProps) {
       const p = pw.template_goodness_of_fit.p_value;
       items.push({
         test: 'Password: Template Goodness-of-Fit',
-        pValue: p,
+        pValue: Math.max(p, 1e-300),
         stat:
           pw.template_goodness_of_fit.chi2 !== undefined
             ? pw.template_goodness_of_fit.chi2.toFixed(1)
             : 'N/A',
-        df: pw.template_goodness_of_fit.dof ?? 50,
+        df: pw.template_goodness_of_fit.dof ?? pw.template_goodness_of_fit.degrees_of_freedom ?? 50,
         pass: p > alpha,
         isControl: false,
         description: 'Decoded random seeds vs PCFG template distribution',
@@ -321,9 +364,14 @@ export function EvalCharts({ data }: EvalChartsProps) {
       const tg = data.chi_squared.template_goodness_of_fit;
       items.push({
         test: 'Template Goodness-of-Fit',
-        pValue: tg.p_value,
-        stat: tg.statistic !== undefined ? tg.statistic.toFixed(1) : 'N/A',
-        df: tg.degrees_of_freedom ?? 50,
+        pValue: Math.max(tg.p_value, 1e-300),
+        stat:
+          tg.statistic !== undefined
+            ? tg.statistic.toFixed(1)
+            : tg.chi2 !== undefined
+              ? tg.chi2.toFixed(1)
+              : 'N/A',
+        df: tg.dof ?? tg.degrees_of_freedom ?? 50,
         pass: tg.p_value > alpha,
         isControl: false,
         description: tg.note ?? 'Decoded random seeds vs model probabilities',
@@ -335,12 +383,12 @@ export function EvalCharts({ data }: EvalChartsProps) {
       const p = un.seed_byte_uniformity.p_value;
       items.push({
         test: 'Username: Seed Byte Uniformity (Held-out)',
-        pValue: p,
+        pValue: Math.max(p, 1e-300),
         stat:
           un.seed_byte_uniformity.chi2 !== undefined
             ? un.seed_byte_uniformity.chi2.toFixed(1)
             : 'N/A',
-        df: un.seed_byte_uniformity.dof ?? 255,
+        df: un.seed_byte_uniformity.dof ?? un.seed_byte_uniformity.degrees_of_freedom ?? 255,
         pass: p > alpha,
         isControl: false,
         description: 'Encoded held-out username bytes vs uniform (256 bins)',
@@ -351,12 +399,12 @@ export function EvalCharts({ data }: EvalChartsProps) {
       const p = un.seed_int_uniformity.p_value;
       items.push({
         test: 'Username: Seed Int Uniformity (Held-out)',
-        pValue: p,
+        pValue: Math.max(p, 1e-300),
         stat:
           un.seed_int_uniformity.chi2 !== undefined
             ? un.seed_int_uniformity.chi2.toFixed(1)
             : 'N/A',
-        df: un.seed_int_uniformity.dof ?? 15,
+        df: un.seed_int_uniformity.dof ?? un.seed_int_uniformity.degrees_of_freedom ?? 15,
         pass: p > alpha,
         isControl: false,
         description: 'Encoded held-out username ints (top 4 bits, 16 bins)',
@@ -367,15 +415,52 @@ export function EvalCharts({ data }: EvalChartsProps) {
       const p = un.seed_int_uniformity_control.p_value;
       items.push({
         test: 'Username: Codec Control (Model Samples)',
-        pValue: p,
+        pValue: Math.max(p, 1e-300),
         stat:
           un.seed_int_uniformity_control.chi2 !== undefined
             ? un.seed_int_uniformity_control.chi2.toFixed(1)
             : 'N/A',
-        df: un.seed_int_uniformity_control.dof ?? 15,
+        df: un.seed_int_uniformity_control.dof ?? un.seed_int_uniformity_control.degrees_of_freedom ?? 15,
         pass: p > alpha,
         isControl: true,
         description: 'Username codec control on model samples',
+      });
+    }
+
+    if (un?.seed_pit_uniformity) {
+      const p = un.seed_pit_uniformity.p_value;
+      items.push({
+        test: 'Username: Seed PIT Uniformity (Held-out)',
+        pValue: Math.max(p, 1e-300),
+        stat:
+          un.seed_pit_uniformity.chi2 !== undefined
+            ? un.seed_pit_uniformity.chi2.toFixed(1)
+            : 'N/A',
+        df: un.seed_pit_uniformity.dof ?? un.seed_pit_uniformity.degrees_of_freedom ?? 15,
+        pass: p > alpha,
+        isControl: false,
+        description:
+          'Randomized PIT of every used seed int vs uniform (works for any distribution total)',
+      });
+    }
+
+    if (un?.seed_pit_uniformity_control) {
+      const p = un.seed_pit_uniformity_control.p_value;
+      items.push({
+        test: 'Username: PIT Codec Control (Model Samples)',
+        pValue: Math.max(p, 1e-300),
+        stat:
+          un.seed_pit_uniformity_control.chi2 !== undefined
+            ? un.seed_pit_uniformity_control.chi2.toFixed(1)
+            : 'N/A',
+        df:
+          un.seed_pit_uniformity_control.dof ??
+          un.seed_pit_uniformity_control.degrees_of_freedom ??
+          15,
+        pass: p > alpha,
+        isControl: true,
+        description:
+          'Randomized PIT of every used seed int vs uniform (works for any distribution total)',
       });
     }
 
@@ -383,12 +468,12 @@ export function EvalCharts({ data }: EvalChartsProps) {
       const p = un.template_goodness_of_fit.p_value;
       items.push({
         test: 'Username: Template Goodness-of-Fit',
-        pValue: p,
+        pValue: Math.max(p, 1e-300),
         stat:
           un.template_goodness_of_fit.chi2 !== undefined
             ? un.template_goodness_of_fit.chi2.toFixed(1)
             : 'N/A',
-        df: un.template_goodness_of_fit.dof ?? 50,
+        df: un.template_goodness_of_fit.dof ?? un.template_goodness_of_fit.degrees_of_freedom ?? 50,
         pass: p > alpha,
         isControl: false,
         description: 'Username decoded random seeds vs model probabilities',
@@ -399,10 +484,15 @@ export function EvalCharts({ data }: EvalChartsProps) {
   }, [data.chi_squared]);
 
   const pwSeedP =
+    data.chi_squared.password?.seed_pit_uniformity?.p_value ??
     data.chi_squared.password?.seed_byte_uniformity?.p_value ??
     data.chi_squared.seed_uniformity?.p_value;
-  const pwControlP = data.chi_squared.password?.seed_int_uniformity_control?.p_value;
-  const unControlP = data.chi_squared.username?.seed_int_uniformity_control?.p_value;
+  const pwControlP =
+    data.chi_squared.password?.seed_pit_uniformity_control?.p_value ??
+    data.chi_squared.password?.seed_int_uniformity_control?.p_value;
+  const unControlP =
+    data.chi_squared.username?.seed_pit_uniformity_control?.p_value ??
+    data.chi_squared.username?.seed_int_uniformity_control?.p_value;
 
   // 5. KDF Latency per Profile from kdf.*
   const kdfLatencyData = useMemo(() => {
@@ -1047,7 +1137,7 @@ export function EvalCharts({ data }: EvalChartsProps) {
                 </Badge>
               </div>
             ) : (
-              <div className="h-[300px] w-full">
+              <div className="h-[380px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={chiSquaredChartData}
@@ -1070,7 +1160,7 @@ export function EvalCharts({ data }: EvalChartsProps) {
                       stroke={colors.text}
                       tick={{ fill: colors.text, fontSize: 10 }}
                       tickLine={{ stroke: colors.grid }}
-                      width={130}
+                      width={145}
                     />
                     <Tooltip
                       contentStyle={{
