@@ -49,7 +49,9 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
     status_code=status.HTTP_201_CREATED,
     response_model=RegisterResponse,
 )
+@limiter.limit(lambda: get_settings().rate_limit_login)
 def register(
+    request: Request,
     payload: RegisterRequest,
     db: Annotated[Session, Depends(get_db)],
     hc_client: Annotated[HoneycheckerClient, Depends(get_honeychecker_client)],

@@ -499,3 +499,43 @@ def test_share_validation_errors(
     )
     assert resp_unk_entry.status_code == 404
     assert resp_unk_entry.json()["detail"] == "Entry not found"
+
+
+def test_tamper_only_allowed_for_sender_or_recipient(
+    client: TestClient,
+    pki_test_env: dict[str, Any],
+) -> None:
+    """A third party gets 404 on tamper (no existence leak); the recipient may tamper."""
+    alice_master = "AliceMasterPass123!"  # noqa: S105
+    alice_headers = _register_and_login(client, "alice7", alice_master)
+    bob_headers = _register_and_login(client, "bob7", "BobMasterPass456@")
+    charlie_headers = _register_and_login(client, "charlie7", "CharlieMasterPass789#")
+
+    add_resp = client.post(
+        "/api/vault/entries",
+        json={
+            "master_password": alice_master,
+            "service": "example.com",
+            "username": "alice_ex",
+            "password": "ExamplePass123!",
+        },
+        headers=alice_headers,
+    )
+    share_resp = client.post(
+        "/api/shares",
+        json={
+            "master_password": alice_master,
+            "entry_id": add_resp.json()["id"],
+            "recipient_username": "bob7",
+        },
+        headers=alice_headers,
+    )
+    share_id = share_resp.json()["share_id"]
+
+    resp_charlie = client.post(f"/api/shares/{share_id}/tamper", headers=charlie_headers)
+    assert resp_charlie.status_code == 404
+    assert resp_charlie.json()["detail"] == "Share not found"
+
+    resp_bob = client.post(f"/api/shares/{share_id}/tamper", headers=bob_headers)
+    assert resp_bob.status_code == 200
+    assert resp_bob.json() == {"tampered": True}

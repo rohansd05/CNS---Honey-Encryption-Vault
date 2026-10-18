@@ -94,9 +94,9 @@ def open_share_endpoint(
 )
 def tamper_share_endpoint(
     id: str,
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> TamperShareResponse:
     """Flip one ciphertext byte of a stored share envelope (demo mode only)."""
-    share_service.tamper_share(db, share_id=id)
+    share_service.tamper_share(db, current_user, share_id=id)
     return TamperShareResponse(tampered=True)

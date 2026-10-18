@@ -304,3 +304,20 @@ def test_login_honeychecker_down_returns_503(
     )
     assert resp.status_code == 503
     assert resp.json()["detail"] == "Service temporarily unavailable"
+
+
+def test_register_rate_limited_after_five_per_minute(client: TestClient) -> None:
+    """The 6th registration from one client within a minute returns 429."""
+    for i in range(6):
+        resp = client.post(
+            "/api/auth/register",
+            json={
+                "username": f"user_{uuid.uuid4().hex[:8]}",
+                "login_password": "ValidLoginPass123!",
+                "master_password": "ValidMasterPass456@",
+            },
+        )
+        if i < 5:
+            assert resp.status_code == 201
+    assert resp.status_code == 429
+    assert resp.json() == {"detail": "Rate limit exceeded"}
