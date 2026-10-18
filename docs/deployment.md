@@ -1,7 +1,8 @@
 # HoneyVault Deployment & Runbook Guide
 
 **Owner:** T4 — Deployment & Release (Vedant)  
-**Target Environments:** Local Docker Compose, Neon Postgres, Render (API & Honeychecker), Vercel (Frontend)
+**Target Environments:** Local Docker Compose, Neon Postgres, Render (API & Honeychecker), Vercel (Frontend)  
+Live system = Render + Vercel tracking `dev`; release v1.0.0 = the same commit on `main`.
 
 ---
 
@@ -116,8 +117,8 @@ In Phase 2, internal service-to-service communication between `honeyvault-api` a
       verify="/app/pki/root-ca.crt",
   )
   ```
-- **Compose Profile**:
-  The commented `api-mtls` and `honeychecker-mtls` configurations in `docker-compose.yml` activate under `docker compose --profile mtls up`.
+- **Compose Setup**:
+  Run `docker compose -f docker-compose.yml -f docker-compose.mtls.yml up --build`, after generating certs as in `pki/README.md`, and verify with `python backend/scripts/verify_mtls.py`.
 
 ---
 
@@ -162,12 +163,12 @@ Step 1: Neon Databases ──> Step 2: Render Blueprint ──> Step 3: Vercel F
    - `VITE_USE_MOCKS`: `false`.
    - `VITE_DEMO_MODE`: `true`.
    - `VITE_APP_NAME`: `HoneyVault`.
-5. Deploy and note the assigned production domain (e.g. `https://honeyvault-staging.vercel.app`).
+5. Deploy and note the assigned production domain (e.g. `https://honeyvault-three.vercel.app`).
 
 ### Step 4: CORS Configuration
 1. In the Render Dashboard for `honeyvault-api`, update `ALLOWED_ORIGINS`:
    ```text
-   ALLOWED_ORIGINS=https://honeyvault-staging.vercel.app,http://localhost:5173
+   ALLOWED_ORIGINS=https://honeyvault-three.vercel.app,http://localhost:5173
    ```
 2. Trigger a redeploy of `honeyvault-api` to apply the updated origin whitelist.
 
@@ -177,7 +178,7 @@ Run the automated smoke test script against the deployed staging endpoints:
 ```bash
 python -m scripts.smoke_test \
   --api https://honeyvault-api.onrender.com \
-  --frontend https://honeyvault-staging.vercel.app
+  --frontend https://honeyvault-three.vercel.app
 ```
 
 Verify that all essential checks PASS and unreleased endpoints show SKIP.
@@ -222,7 +223,7 @@ Verify that all essential checks PASS and unreleased endpoints show SKIP.
 | `BOB_USERNAME` | `bob` | No | Attacker-console demo target username |
 | `BOB_LOGIN_PASSWORD` | *(set in Render)* | **Yes** | Bob's login password — **required** in any non-`development` `APP_ENV` |
 | `BOB_MASTER_PASSWORD` | *(set in Render)* | **Yes** | Bob's master password — **required** in any non-`development` `APP_ENV` |
-| `PCFG_PASSWORD_MODEL_PATH` | `honeycore/models/pcfg_password_v1.json.gz` | No | Path to PCFG password model (relative to `backend/`) |
+| `PCFG_PASSWORD_MODEL_PATH` | `honeycore/models/pcfg_password_v2.json.gz` | No | Path to PCFG password model (relative to `backend/`) |
 | `PCFG_USERNAME_MODEL_PATH` | `honeycore/models/pcfg_username_v1.json.gz` | No | Path to PCFG username model (relative to `backend/`) |
 | `EVAL_RESULTS_PATH` | `eval/results/latest.json` | No | Path to evaluation results JSON |
 | `KEY_WRAP_SECRET` | *(Base64 of 32 random bytes)* | **Yes** | Server KEK that wraps users' ECC identity private keys |
@@ -280,16 +281,16 @@ Verify that all essential checks PASS and unreleased endpoints show SKIP.
 
 ---
 
-## 8. Pre-Demo Warm-Up (run 2 minutes before presenting)
+## 8. Pre-Demo Warm-Up (run 5 minutes before presenting)
 
 > [!IMPORTANT]
 > **Do not run 24/7 uptime pingers.** Render free tier provides 750 instance-hours/month. Constant pinging wastes the allocation and defeats the purpose of the free tier — it also re-introduces the "which password wakes the server faster" timing side-channel we deliberately avoid.
 
-Open both health URLs in a browser tab **2 minutes before** the demo:
+Open both health URLs in a browser tab **5 minutes before** the demo:
 
-1. **Honeychecker health** — open in browser or run:
+1. **Honeychecker health** — open in browser or run (copy the URL from Render → `honeyvault-honeychecker`):
    ```bash
-   curl -i https://honeyvault-api.onrender.com/hc/health
+   curl -i <HONEYCHECKER_URL>/hc/health
    ```
    Expected: `HTTP 200` `{"status":"ok","service":"honeychecker","db":"ok",...}`
 
