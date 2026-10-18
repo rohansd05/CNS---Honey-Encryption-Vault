@@ -138,7 +138,7 @@ export function Step1StealVault({ onNext }: Step1StealVaultProps) {
         <Card className="border-danger/30 bg-danger/10 p-6 text-center">
           <ShieldAlert className="mx-auto h-8 w-8 text-danger mb-2" />
           <h3 className="font-semibold text-danger">Failed to fetch stolen vault data</h3>
-          <p className="text-xs text-text-secondary mt-1 mb-4">Ensure DEMO_MODE is active and MSW mock handlers are loaded.</p>
+          <p className="text-xs text-text-secondary mt-1 mb-4">Make sure the API is reachable and DEMO_MODE is on.</p>
           <Button
             variant="outline"
             size="sm"
