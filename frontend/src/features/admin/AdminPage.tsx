@@ -1,14 +1,17 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
   ShieldAlert,
   UserCheck,
+  AlertCircle,
+  RotateCcw,
 } from 'lucide-react';
-import { toast } from 'sonner';
 import { useAdminAlerts } from '@/api/hooks/useAdminQueries';
 import type { AdminAlert } from '@/api/types';
 import { useAuth } from '@/lib/auth';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AdminStatsHeader } from './components/AdminStatsHeader';
 import { AdminFilters } from './components/AdminFilters';
@@ -19,61 +22,13 @@ import { AdminEmptyState } from './components/AdminEmptyState';
 export function AdminPage() {
   const shouldReduceMotion = useReducedMotion();
   const { user } = useAuth();
-  const { data, isLoading, refetch, isFetching, dataUpdatedAt } =
+  const { data, isLoading, isError, refetch, isFetching, dataUpdatedAt } =
     useAdminAlerts();
 
-  // Local simulated alerts to allow interactive testing & cross-tab sync
-  const [extraAlerts, setExtraAlerts] = useState<AdminAlert[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [severityFilter, setSeverityFilter] = useState<string>('all');
 
-  // Listen for honeyword login attempts dispatched across the application
-  useEffect(() => {
-    const handleHoneywordAttempt = (e: Event) => {
-      const customEvent = e as CustomEvent<{ index: number; sweetword: string; username?: string }>;
-      const { index, username } = customEvent.detail;
-
-      const targetUsername = typeof username === 'string' && username.length > 0 ? username : 'demo';
-      const sweetIndex = typeof index === 'number' ? index : Math.floor(Math.random() * 9);
-
-      const simulatedAlert: AdminAlert = {
-        id: `alt-sim-${Date.now().toString()}`,
-        username: targetUsername,
-        kind: 'HONEYWORD_LOGIN',
-        severity: 'critical',
-        sweetword_index: sweetIndex,
-        source_ip: '198.51.100.42',
-        user_agent: navigator.userAgent,
-        created_at: new Date().toISOString(),
-      };
-
-      setExtraAlerts((prev) => [simulatedAlert, ...prev]);
-      toast.error(
-        `CRITICAL BREACH ALARM: Decoy sweetword #${String(sweetIndex)} triggered for '${targetUsername}'!`,
-        {
-          description: `Source IP: ${simulatedAlert.source_ip} (logged by Honeychecker)`,
-          duration: 5000,
-        },
-      );
-    };
-
-    window.addEventListener('hv:honeyword_attempt', handleHoneywordAttempt);
-    return () => {
-      window.removeEventListener('hv:honeyword_attempt', handleHoneywordAttempt);
-    };
-  }, []);
-
-  // Merge server alerts with any locally simulated alerts, deduping by id
-  const allAlerts = useMemo(() => {
-    const serverAlerts = data ?? [];
-    const merged = [...extraAlerts, ...serverAlerts];
-    const seen = new Set<string>();
-    return merged.filter((item) => {
-      if (seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    });
-  }, [data, extraAlerts]);
+  const allAlerts: AdminAlert[] = useMemo(() => data ?? [], [data]);
 
   // Filter alerts based on search and severity
   const filteredAlerts = useMemo(() => {
@@ -92,30 +47,6 @@ export function AdminPage() {
       return true;
     });
   }, [allAlerts, searchTerm, severityFilter]);
-
-  const handleSimulateAlert = () => {
-    const mockUsernames = ['demo', 'alice', 'bob', 'charlie'];
-    const randomUser = mockUsernames[Math.floor(Math.random() * mockUsernames.length)] ?? 'demo';
-    const randomIndex = Math.floor(Math.random() * 9) + 1;
-    const randomIp = `198.51.100.${String(Math.floor(Math.random() * 200) + 10)}`;
-
-    const newAlert: AdminAlert = {
-      id: `alt-sim-${Date.now().toString()}`,
-      username: randomUser,
-      kind: 'HONEYWORD_LOGIN',
-      severity: 'critical',
-      sweetword_index: randomIndex,
-      source_ip: randomIp,
-      user_agent: 'curl/8.5.0 (Security Scanner)',
-      created_at: new Date().toISOString(),
-    };
-
-    setExtraAlerts((prev) => [newAlert, ...prev]);
-    toast.error(`Security Breach Alarm Generated`, {
-      description: `Honeyword login hit index #${String(randomIndex)} for ${randomUser}. Honeychecker alerted.`,
-      duration: 4000,
-    });
-  };
 
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8">
@@ -179,13 +110,41 @@ export function AdminPage() {
             void refetch();
           }}
           dataUpdatedAt={dataUpdatedAt}
-          onSimulate={handleSimulateAlert}
         />
       </section>
 
-      {/* Alerts Table or Empty/Loading State */}
+      {/* Alerts Table or Empty/Loading/Error State */}
       <section aria-label="Breach Telemetry Incidents">
-        {isLoading && allAlerts.length === 0 ? (
+        {isError ? (
+          <Card className="border-border border-dashed bg-bg-surface/60 max-w-xl mx-auto my-10 text-center p-8 sm:p-10 shadow-card">
+            <CardContent className="space-y-5">
+              <div className="h-16 w-16 mx-auto rounded-2xl bg-danger/10 border border-danger/20 flex items-center justify-center text-danger shadow-[0_0_20px_rgba(239,68,68,0.15)]">
+                <AlertCircle size={32} />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-lg sm:text-xl font-bold text-text-primary">
+                  Couldn't load alerts
+                </h3>
+                <p className="text-xs sm:text-sm text-text-secondary max-w-md mx-auto leading-relaxed">
+                  Failed to fetch breach telemetry from the Honeychecker service.
+                </p>
+              </div>
+              <div className="flex items-center justify-center pt-2">
+                <Button
+                  onClick={() => {
+                    void refetch();
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="border-border hover:bg-bg-elevated text-xs font-semibold text-text-primary gap-1.5"
+                >
+                  <RotateCcw size={14} />
+                  <span>Retry</span>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : isLoading && allAlerts.length === 0 ? (
           <div className="space-y-3">
             <Skeleton className="h-12 w-full rounded-xl" />
             <Skeleton className="h-40 w-full rounded-xl" />
@@ -199,7 +158,6 @@ export function AdminPage() {
               setSearchTerm('');
               setSeverityFilter('all');
             }}
-            onSimulate={handleSimulateAlert}
           />
         )}
       </section>

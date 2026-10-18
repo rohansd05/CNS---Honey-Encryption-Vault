@@ -13,7 +13,6 @@ import {
 import { useEvalSummary } from '@/api/hooks/useEvalQueries';
 import { MOCK_EVAL_SUMMARY } from '@/mocks/handlers/eval';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { EvalKpiCards } from './components/EvalKpiCards';
 import { EvalCharts } from './components/EvalCharts';
 import { EvalExplainer } from './components/EvalExplainer';
@@ -56,17 +55,9 @@ export function EvaluationPage() {
               <BarChart3 size={26} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-text-primary tracking-tight">
-                  Evaluation & Verification
-                </h1>
-                <Badge
-                  variant="outline"
-                  className="bg-accent/10 text-accent border-accent/30 text-xs font-semibold"
-                >
-                  Phase 3 Verified
-                </Badge>
-              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-text-primary tracking-tight">
+                Evaluation & Verification
+              </h1>
               <p className="text-xs sm:text-sm text-text-secondary mt-1">
                 Empirical cryptographic benchmarks, distribution analysis, and distinguishing attack resistance.
               </p>
@@ -147,7 +138,7 @@ export function EvaluationPage() {
         {useDemoFallback && !data && (
           <div className="rounded-lg bg-accent/10 border border-accent/30 p-3 text-xs text-text-secondary flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <span>
-              ℹ️ <strong>Demonstration Snapshot:</strong> The live API returned 404 (evaluation results have not been generated via <code className="font-mono text-accent">python -m eval.run_all</code> yet). Displaying verified benchmark snapshot from <code className="font-mono text-accent">backend/eval/results/latest.json</code>.
+              ℹ️ <strong>Demonstration Snapshot:</strong> Couldn't load live results from the API. Displaying verified benchmark snapshot from <code className="font-mono text-accent">backend/eval/results/latest.json</code>.
             </span>
             <Button
               variant="ghost"

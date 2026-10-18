@@ -3,7 +3,6 @@ import {
   Search,
   X,
   RotateCcw,
-  Flame,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,6 @@ interface AdminFiltersProps {
   isFetching: boolean;
   onRefresh: () => void;
   dataUpdatedAt?: number;
-  onSimulate?: () => void;
 }
 
 export function AdminFilters({
@@ -31,7 +29,6 @@ export function AdminFilters({
   isFetching,
   onRefresh,
   dataUpdatedAt,
-  onSimulate,
 }: AdminFiltersProps) {
   const [secondsAgo, setSecondsAgo] = useState<number>(0);
 
@@ -140,20 +137,6 @@ export function AdminFilters({
             />
             <span>Refresh</span>
           </Button>
-
-          {onSimulate && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => {
-                onSimulate();
-              }}
-              className="h-9 px-3 bg-danger hover:bg-danger/90 text-white text-xs font-semibold gap-1.5 shadow-sm"
-            >
-              <Flame size={13} />
-              <span className="hidden sm:inline">Simulate Alarm</span>
-            </Button>
-          )}
         </div>
       </div>
 
