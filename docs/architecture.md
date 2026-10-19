@@ -47,10 +47,12 @@ the bundle once per process:
 | `password_model` | the entry DTE's `PCFGPasswordModel` (same loaded instance; honeywords) |
 | `sharing` / `pki` | `Sharing()` / `PKI()` |
 
-A missing module raises `NotImplementedError("<module> not implemented yet — owner: <name>")`; a
-missing `pcfg_*_v1.json.gz` raises `RuntimeError` naming the file and the `train_pcfg.py` command.
-The vault blob shape is identical in both modes; stub blobs say "stub" in `scheme`/model ids, and
-both modes use the same sigil tables (`honeycore/sigil.py`).
+A missing module raises `NotImplementedError("<module> not implemented yet — owner: <name>")`.
+`_require_model_files()` verifies model ID approval against `MODEL_INTEGRITY_MANIFEST`, ensures model
+files exist (raising `RuntimeError` with the `train_pcfg.py` command if missing), and validates
+SHA-256 integrity against `MODEL_SHA256_MANIFEST` before loading. The vault blob shape is identical
+in both modes; stub blobs say "stub" in `scheme`/model ids, and both modes use the same sigil tables
+(`honeycore/sigil.py`).
 
 ## 4. Repository tree
 Legend: ✅ exists · 🔜 planned (owner, phase). Ownership follows PROJECT-ROADMAP.md §2.

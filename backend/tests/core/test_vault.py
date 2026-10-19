@@ -543,3 +543,41 @@ def test_from_dict_rejects_duplicate_ids(filled: tuple[HoneyVault, list[str]]) -
 def test_from_dict_rejects_non_dict(blob: Any) -> None:
     with pytest.raises(ValueError):
         Vault.from_dict(blob)
+
+
+def test_from_dict_matching_model_ids_succeeds_and_unlocks(
+    filled: tuple[HoneyVault, list[str]],
+) -> None:
+    """A valid vault with matching model IDs is loaded and unlocks authentic entries."""
+    vault, _ = filled
+    blob = copy.deepcopy(vault.to_dict())
+    loaded = Vault.from_dict(blob)
+    assert loaded.model_ids["password_model"] == blob["dte"]["password_model"]
+    assert loaded.model_ids["username_model"] == blob["dte"]["username_model"]
+    result = loaded.unlock(MASTER)
+    assert len(result.entries) == len(ENTRIES)
+    assert result.entries[0].service == ENTRIES[0].service
+    assert result.entries[0].username == ENTRIES[0].username
+    assert result.entries[0].password == ENTRIES[0].password
+
+
+def test_from_dict_rejects_mismatched_password_model(
+    filled: tuple[HoneyVault, list[str]],
+) -> None:
+    """Fail-closed: from_dict rejects a vault with an unexpected password model."""
+    blob = copy.deepcopy(filled[0].to_dict())
+    blob["dte"]["password_model"] = "pcfg-password-v2"  # noqa: S105
+    pattern = "dte.password_model: unsupported or mismatched model 'pcfg-password-v2'"
+    with pytest.raises(VaultFormatError, match=pattern):
+        Vault.from_dict(blob)
+
+
+def test_from_dict_rejects_mismatched_username_model(
+    filled: tuple[HoneyVault, list[str]],
+) -> None:
+    """Fail-closed: from_dict rejects a vault with an unexpected username model."""
+    blob = copy.deepcopy(filled[0].to_dict())
+    blob["dte"]["username_model"] = "pcfg-username-v2"
+    pattern = "dte.username_model: unsupported or mismatched model 'pcfg-username-v2'"
+    with pytest.raises(VaultFormatError, match=pattern):
+        Vault.from_dict(blob)

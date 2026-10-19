@@ -285,6 +285,12 @@ AES-256-CTR (`cryptography`), random 16-byte nonce **per entry**, `ct = seed XOR
   `(u, p) = EntryDTE.decode(seed)`. Return the entries plus the sigil.
 - **add/update(pw, entry):** encrypt only that entry under `enc_key(pw)`. Never re-encrypt other
   entries. A typo therefore damages at most one entry.
+- **from_dict validation:** `HoneyVault.from_dict()` validates that declared `password_model` and
+  `username_model` match the active DTE engine; unsupported or mismatched model IDs raise
+  `VaultFormatError` (fail closed). Model artifacts are verified via SHA-256 against a trusted
+  manifest in `honeycore.factory` before loading. The canonical password model remains
+  pcfg-password-v1 under Option B. Staging synchronization to v1 and live Flow 3 verification
+  remain pending.
 
 ### 7.9 Vault Sigil (`sigil.py`)
 `h = HMAC-SHA256(sigil_key, b"sigil")`:
@@ -374,8 +380,11 @@ A wrong password raises `WrongPasswordError` (InvalidTag). Used only for the com
 ## 12. Threat model & invariants
 - **Attacker A1** steals the DB (vault blobs, honeyword hashes). Goals: recover entries; confirm
   the master password offline.
-  - Defence: HE (no oracle). Honeywords: cracking hashes yields k candidates, and using a decoy
-    triggers an alarm.
+  - Defence: HE eliminates the cryptographic verification oracle (no MAC, AEAD tag, padding, or checksum),
+    so every candidate password decrypts to a syntactically valid vault. However, HE does not offer
+    information-theoretic security; offline resistance against statistical distinguishing attacks is
+    bounded by PCFG model fit and empirical distributions (see docs/threat-model.md & docs/eval-report.md).
+  - Honeywords: cracking hashes yields k candidates, and using a decoy triggers an alarm.
 - **Attacker A2** is online. Defence: rate limits, JWT, generic errors.
 - **Out of scope:** full server compromise (KEK in env), client malware, multi-snapshot
   correlation.
@@ -394,8 +403,12 @@ A wrong password raises `WrongPasswordError` (InvalidTag). Used only for the com
 - Other limitations:
   - Typo-tolerance is open, as in the literature.
   - Fields are limited to 32 chars.
-  - Independent decoy entries don't model password reuse (stretch goal).
+  - Independent decoy entries don't model password reuse across vault entries (stretch goal).
   - Ciphertext length reveals the entry count.
+  - Statistical distinguishability: an offline attacker with leaked corpora can apply ML classifiers
+    or frequency analysis to rank candidate vaults (docs/eval-report.md).
+  - Model distribution dependency: vault recovery strictly requires the exact DTE distribution and
+    weights used during encryption; mismatched weights decrypt to noise.
 
 ## 14. Tech stack
 - **Backend:** Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, argon2-cffi,

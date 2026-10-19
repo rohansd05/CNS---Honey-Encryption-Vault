@@ -1,4 +1,5 @@
 import subprocess
+import sys
 from pathlib import Path
 
 from scripts.build_attack_wordlist import (
@@ -6,6 +7,8 @@ from scripts.build_attack_wordlist import (
     load_base_words,
     mangle,
 )
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 
 def test_load_base_words_plain_and_count(tmp_path: Path):
@@ -110,7 +113,7 @@ def test_cli_fallback_and_args(tmp_path: Path):
     # 24. CLI respects --max-total
 
     cmd = [
-        "python",
+        sys.executable,
         "-m",
         "scripts.build_attack_wordlist",
         "--top",
@@ -121,7 +124,7 @@ def test_cli_fallback_and_args(tmp_path: Path):
         str(out_file),
     ]
 
-    subprocess.run(cmd, check=True)  # noqa: S603
+    subprocess.run(cmd, cwd=BACKEND_DIR, check=True)  # noqa: S603
 
     assert out_file.exists()
     content = out_file.read_text(encoding="utf-8")
@@ -141,7 +144,7 @@ def test_cli_custom_input(tmp_path: Path):
     out_file = tmp_path / "out.txt"
 
     cmd = [
-        "python",
+        sys.executable,
         "-m",
         "scripts.build_attack_wordlist",
         "--input",
@@ -150,7 +153,7 @@ def test_cli_custom_input(tmp_path: Path):
         str(out_file),
     ]
 
-    subprocess.run(cmd, check=True)  # noqa: S603
+    subprocess.run(cmd, cwd=BACKEND_DIR, check=True)  # noqa: S603
     assert out_file.exists()
 
     # "custompass" gives 13 variants
@@ -163,10 +166,10 @@ def test_cli_deterministic(tmp_path: Path):
     out1 = tmp_path / "out1.txt"
     out2 = tmp_path / "out2.txt"
 
-    cmd1 = ["python", "-m", "scripts.build_attack_wordlist", "--out", str(out1)]
-    cmd2 = ["python", "-m", "scripts.build_attack_wordlist", "--out", str(out2)]
+    cmd1 = [sys.executable, "-m", "scripts.build_attack_wordlist", "--out", str(out1)]
+    cmd2 = [sys.executable, "-m", "scripts.build_attack_wordlist", "--out", str(out2)]
 
-    subprocess.run(cmd1, check=True)  # noqa: S603
-    subprocess.run(cmd2, check=True)  # noqa: S603
+    subprocess.run(cmd1, cwd=BACKEND_DIR, check=True)  # noqa: S603
+    subprocess.run(cmd2, cwd=BACKEND_DIR, check=True)  # noqa: S603
 
     assert out1.read_text() == out2.read_text()

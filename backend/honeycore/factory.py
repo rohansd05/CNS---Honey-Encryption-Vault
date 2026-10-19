@@ -12,9 +12,11 @@ honeywords), the baseline ``ConventionalVault``, ``Sharing()`` and ``PKI()``.
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, Literal
 
 from honeycore.interfaces import (
@@ -25,6 +27,37 @@ from honeycore.interfaces import (
     PasswordModel,
     SharingAPI,
 )
+
+# Trusted SHA-256 digests for model artifacts (keyed by (kind, model_id)).
+# Manifest records approved models: filename and lowercase hex SHA-256 digest.
+MODEL_INTEGRITY_MANIFEST: dict[tuple[str, str], tuple[str, str]] = {
+    ("password", "pcfg-password-v1"): (
+        "pcfg_password_v1.json.gz",
+        "f2ba0b8ab81e06aded1b456c0dc1c8fbf0e46e10d21dd0628346994a64a7a83d",
+    ),
+    ("password", "pcfg-password-v2"): (
+        "pcfg_password_v2.json.gz",
+        "8b225bb35d85624a2da1f4a3611574f2895336030660f2a838a63a3f159e76a6",
+    ),
+    ("username", "pcfg-username-v1"): (
+        "pcfg_username_v1.json.gz",
+        "ec5ffa2dfe40b0f469e8fe1ec74b37f67eb7b03e720edbe3abe9f89a57a26578",
+    ),
+}
+
+MODEL_SHA256_MANIFEST: dict[str, str] = {
+    fname: sha for _, (fname, sha) in MODEL_INTEGRITY_MANIFEST.items()
+}
+
+
+def _sha256(path: Path) -> str:
+    """Return the lowercase hex SHA-256 digest of ``path``."""
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        while chunk := fh.read(65536):
+            h.update(chunk)
+    return h.hexdigest()
+
 
 # Example training input per model kind, for the missing-model error (paths from backend/).
 _TRAIN_INPUTS: dict[str, str] = {
@@ -56,19 +89,40 @@ def _load_real_part(module: str, name: str, owner: str) -> Any:
 
 
 def _require_model_files() -> None:
-    """Raise ``RuntimeError`` naming the first missing model file and its train command."""
+    """Validate model ID approval, file existence, and SHA-256 integrity against the manifest."""
     from honeycore.dte import password_dte, username_dte
 
-    for kind, path in (
-        ("password", password_dte.DEFAULT_MODEL_PATH),
-        ("username", username_dte.DEFAULT_MODEL_PATH),
+    for kind, mod in (
+        ("password", password_dte),
+        ("username", username_dte),
     ):
+        model_id = getattr(mod, "MODEL_ID", None)
+        path: Path | None = getattr(mod, "DEFAULT_MODEL_PATH", None)
+
+        if (kind, model_id) not in MODEL_INTEGRITY_MANIFEST:
+            raise RuntimeError(f"Unknown or unapproved PCFG {kind} model ID: {model_id!r}")
+
+        expected_filename, expected_hash = MODEL_INTEGRITY_MANIFEST[(kind, model_id)]
+
+        if path is None or path.name != expected_filename or path.name not in MODEL_SHA256_MANIFEST:
+            name = path.name if path is not None else "None"
+            raise RuntimeError(
+                f"PCFG {kind} model file {name} is not in the trusted model manifest"
+            )
+
         if not path.is_file():
             raise RuntimeError(
                 f"PCFG {kind} model file not found: {path}. Train it from backend/ with: "
                 f"python scripts/train_pcfg.py --kind {kind} --input {_TRAIN_INPUTS[kind]} "
                 f"--out honeycore/models/{path.name} "
                 "(fetch corpora first with scripts/download_corpus.py)"
+            )
+
+        actual_hash = _sha256(path)
+        if actual_hash != expected_hash:
+            raise RuntimeError(
+                f"PCFG {kind} model integrity check failed for {path.name}: "
+                f"expected SHA-256 {expected_hash}, got {actual_hash}"
             )
 
 

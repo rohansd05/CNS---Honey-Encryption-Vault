@@ -284,11 +284,18 @@ class HoneyVault:
         dte = _require_keys(top["dte"], DTE_KEYS, "dte")
         if isinstance(dte["entry_seed_len"], bool) or dte["entry_seed_len"] != ENTRY_SEED_LEN:
             raise VaultFormatError(f"dte.entry_seed_len: expected {ENTRY_SEED_LEN}")
+        active_ids = _model_ids(cls._dte())
         model_ids: dict[str, str] = {}
         for key in DEFAULT_MODEL_IDS:
-            if not isinstance(dte[key], str) or not dte[key]:
+            val = dte[key]
+            if not isinstance(val, str) or not val:
                 raise VaultFormatError(f"dte.{key}: expected a non-empty string")
-            model_ids[key] = dte[key]
+            expected_id = active_ids.get(key)
+            if expected_id is not None and val != expected_id:
+                raise VaultFormatError(
+                    f"dte.{key}: unsupported or mismatched model '{val}' (loaded: '{expected_id}')"
+                )
+            model_ids[key] = val
 
         if not isinstance(top["entries"], list):
             raise VaultFormatError("entries: expected a list")

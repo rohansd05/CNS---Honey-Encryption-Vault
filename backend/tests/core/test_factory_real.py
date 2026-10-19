@@ -135,3 +135,63 @@ def test_missing_module_reports_owner(
 def test_unknown_impl_rejected() -> None:
     with pytest.raises(ValueError, match="HONEYCORE_IMPL"):
         load_honeycore("fake")  # type: ignore[arg-type]
+
+
+@needs_models
+def test_authentic_models_match_manifest() -> None:
+    """Authentic default model files match their expected SHA-256 digests in the manifest."""
+    for _kind, path in (
+        ("password", password_dte.DEFAULT_MODEL_PATH),
+        ("username", username_dte.DEFAULT_MODEL_PATH),
+    ):
+        assert path.name in factory.MODEL_SHA256_MANIFEST
+        expected = factory.MODEL_SHA256_MANIFEST[path.name]
+        assert factory._sha256(path) == expected
+
+
+@pytest.mark.parametrize(
+    ("module", "kind"), [(password_dte, "password"), (username_dte, "username")]
+)
+def test_modified_model_raises_integrity_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    no_real_cache: None,
+    module: object,
+    kind: str,
+) -> None:
+    """Tampered model file with mismatched SHA-256 raises RuntimeError."""
+    tampered = tmp_path / f"pcfg_{kind}_v1.json.gz"
+    tampered.write_bytes(b"corrupted-or-modified-model-bytes")
+    monkeypatch.setattr(module, "DEFAULT_MODEL_PATH", tampered)
+    pattern = f"PCFG {kind} model integrity check failed for {tampered.name}"
+    with pytest.raises(RuntimeError, match=pattern):
+        load_honeycore("real")
+
+
+def test_unmanifested_model_raises_runtime_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    no_real_cache: None,
+) -> None:
+    """A model file not registered in MODEL_SHA256_MANIFEST is rejected."""
+    unmanifested = tmp_path / "pcfg_unknown_v1.json.gz"
+    unmanifested.write_bytes(b"content")
+    monkeypatch.setattr(password_dte, "DEFAULT_MODEL_PATH", unmanifested)
+    pattern = "is not in the trusted model manifest"
+    with pytest.raises(RuntimeError, match=pattern):
+        load_honeycore("real")
+
+
+@pytest.mark.parametrize(
+    ("module", "kind"), [(password_dte, "password"), (username_dte, "username")]
+)
+def test_unknown_model_id_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+    no_real_cache: None,
+    module: object,
+    kind: str,
+) -> None:
+    """An unknown or unapproved model ID is rejected fail-closed."""
+    monkeypatch.setattr(module, "MODEL_ID", f"pcfg-{kind}-v999")
+    with pytest.raises(RuntimeError, match=f"Unknown or unapproved PCFG {kind} model ID"):
+        load_honeycore("real")
