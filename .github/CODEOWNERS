@@ -35,11 +35,11 @@
 /docs/deployment.md                   @vedantghuge22-hash
 /backend/scripts/smoke_test.py        @vedantghuge22-hash
 
-# ---- T5 Utilities (Aryan, Tanmay: add handles when available) ----
-/backend/app/utils/strength.py        @tanujb03
-/backend/app/api/utils.py             @tanujb03
-/backend/scripts/build_attack_wordlist.py  @dhruvgangurde
-/backend/attack/wordlists/            @dhruvgangurde
+# ---- T5 Utilities (Aryan, Tanmay) ----
+/backend/app/utils/strength.py        @tanujb03 @aryangosavi76 @tanmay916200
+/backend/app/api/utils.py             @tanujb03 @aryangosavi76 @tanmay916200
+/backend/scripts/build_attack_wordlist.py  @dhruvgangurde @aryangosavi76 @tanmay916200
+/backend/attack/wordlists/            @dhruvgangurde @aryangosavi76 @tanmay916200
 
 # ---- Frozen contracts & agent rules (always T1 lead) ----
 /backend/honeycore/interfaces.py      @Nidzz07 @dhruvgangurde
