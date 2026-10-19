@@ -63,15 +63,13 @@
   weights used during encryption. Decoding an authentic ciphertext with a different model or
   retrained weights produces incorrect plaintext, even with the correct master password.
 - **Canonical password model status**:
-  - The `dev` branch repository currently commits and uses `pcfg-password-v1`
-    (`pcfg_password_v1.json.gz`, SHA-256 `f2ba0b8ab81e06aded1b456c0dc1c8fbf0e46e10d21dd0628346994a64a7a83d`),
-    trained on RockYou with Zipf rank weights.
+  - The canonical password model remains `pcfg-password-v1`
+    (`pcfg_password_v1.json.gz`, SHA-256 `f2ba0b8ab81e06aded1b456c0dc1c8fbf0e46e10d21dd0628346994a64a7a83d`)
+    under Option B, trained on RockYou with Zipf rank weights.
   - The staging deployment evaluated `pcfg-password-v2` (`pcfg_password_v2.json.gz`, SHA-256
     `8b225bb35d85624a2da1f4a3611574f2895336030660f2a838a63a3f159e76a6`), trained on
     `rockyou-withcount` frequency counts.
-  - The decision to formally promote `v2` as canonical across all environments remains an open
-    team decision awaiting T1 lead approval. Until formally adopted, `v2` is not canonical and
-    must not be assumed to be supported in every environment.
+  - Staging synchronization to `v1` and live Flow 3 verification remain pending.
 
 ## Security claims & qualification
 To ensure accurate security claims, HoneyVault distinguishes between cryptographic mechanics,
