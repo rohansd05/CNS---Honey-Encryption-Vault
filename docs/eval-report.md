@@ -1,7 +1,7 @@
 # Evaluation report
 
 > Owner: T1 (Dhruv; chi-squared by Nidhi). Numbers come from `backend/eval/results/latest.json`
-> (full run, 2026-10-17T08:30:07Z, `meta.git_commit` `516b425` plus this branch's eval changes),
+> (full run, 2026-10-17T08:30:07Z, `meta.git_commit` `516b425` plus PR #71's eval changes (merged as 85aed3b)),
 > produced by `python -m eval.run_all` with `pcfg-password-v2` and `pcfg-username-v1`. Metrics
 > are defined in PROJECT-BRIEF.md §11. The username seed-uniformity tests fail. The password byte
 > and int seed tests pass, but §4.2 shows that neither can see the v2 model's misfit; the PIT seed
