@@ -1,17 +1,15 @@
-import { ShieldCheck, X, Flame } from 'lucide-react';
+import { ShieldCheck, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 interface AdminEmptyStateProps {
   hasFilters: boolean;
   onResetFilters: () => void;
-  onSimulate?: () => void;
 }
 
 export function AdminEmptyState({
   hasFilters,
   onResetFilters,
-  onSimulate,
 }: AdminEmptyStateProps) {
   return (
     <Card className="border-border border-dashed bg-bg-surface/60 max-w-xl mx-auto my-10 text-center p-8 sm:p-10 shadow-card">
@@ -31,8 +29,8 @@ export function AdminEmptyState({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-          {hasFilters ? (
+        {hasFilters && (
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Button
               onClick={onResetFilters}
               variant="outline"
@@ -42,20 +40,8 @@ export function AdminEmptyState({
               <X size={14} />
               <span>Clear Active Filters</span>
             </Button>
-          ) : (
-            onSimulate && (
-              <Button
-                onClick={onSimulate}
-                variant="default"
-                size="sm"
-                className="bg-danger hover:bg-danger/90 text-white text-xs font-semibold gap-1.5"
-              >
-                <Flame size={14} />
-                <span>Trigger Test Breach Alert</span>
-              </Button>
-            )
-          )}
-        </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

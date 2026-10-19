@@ -148,13 +148,15 @@ The mTLS setup was verified end-to-end via `backend/scripts/verify_mtls.py` (`pk
 
 `plain` **must never be set outside local development** (ADR-005 §Consequences).
 `verify_caller` in `honeychecker/app/security.py` (line 127) returns immediately with no checks
-in this mode. CI and staging deploys must assert `HC_TRANSPORT != plain`.
+in this mode. CI and staging deploys must assert `HC_TRANSPORT != plain`. Note that no runtime
+guard yet rejects `HC_TRANSPORT=plain` outside development; this is tracked as a residual risk
+(§5 below).
 
 ---
 
 ## Known residual risks (network/PKI)
 
-> Source: `docs/decisions/ADR-006.md`, `backend/app/rate_limit.py`, `.env.example`.
+> Source: `docs/decisions/ADR-005.md`, `docs/decisions/ADR-006.md`, `backend/app/rate_limit.py`, `.env.example`.
 
 ### 1 — Server-held identity keys (ADR-006)
 
@@ -181,9 +183,9 @@ inbound traffic arrives through Render's shared proxy, so `get_remote_address` r
 immediately under any real load.
 
 **Staging mitigation:** Limits are raised to **20/minute (login)** and **30/minute (unlock)** in
-the staging `.env`. This is a partial workaround; a proper fix requires trusting and parsing
-`X-Forwarded-For` from a Render-controlled proxy and is tracked as future work. Production
-deployments must audit this before go-live.
+the staging `.env`. This is a partial workaround; trusting `X-Forwarded-For` from upstream proxies
+via uvicorn's `--forwarded-allow-ips '*'` allows per-client rate limits but introduces header-spoofing
+risks (see §6 below). Production deployments must audit this before go-live.
 
 ### 3 — Staging secrets must be regenerated for production
 
@@ -198,10 +200,27 @@ keys. See `.env.example` for generation commands.
 
 Render free-tier services spin down after ~15 minutes of inactivity and cold-start on the next
 request. Cold starts introduce a multi-second delay before the honeychecker responds. If the
-API's `HONEYCHECKER_TIMEOUT_SECONDS` (default 5 s in `.env.example`) is shorter than the cold
-start, login requests during a cold-start window will silently fail the honeyword check — the API
-treats a timeout as a non-alarm to preserve availability. An attacker who can predict or induce
-cold starts gains a narrow window to log in with a decoy without triggering an alarm.
+honeychecker does not respond within `HONEYCHECKER_TIMEOUT_SECONDS`,
+`backend/app/services/honeychecker_client.py` raises `HoneycheckerUnavailable` on timeouts or
+5xx responses, causing login to return `503 Service Unavailable` (**fail-closed**).
 
-**Mitigation options (not yet implemented):** keep-alive pings, upgrade to a paid Render tier,
-or treat timeouts as alarms (at the cost of availability during cold-start periods).
+During a cold start, login can fail with 503 — an **availability cost, not a security gap**;
+decoy logins will not slip through uninspected, nor can an attacker bypass the honeyword alarm.
+
+**Mitigation options:** Keep-alive pings or upgrading to a paid Render tier remain mitigations to
+prevent cold-start delays and maintain service availability.
+
+### 5 — No runtime guard rejecting `HC_TRANSPORT=plain` outside development
+
+While `plain` mode is prohibited in non-development environments (ADR-005), no runtime guard yet
+rejects `HC_TRANSPORT=plain` outside development. Enforcement currently relies on deployment
+configuration and CI assertions. Adding an explicit runtime guard or startup assertion that rejects
+`plain` mode when running in non-development environments remains a residual operational risk.
+
+### 6 — Rate limit evasion via `X-Forwarded-For` spoofing (Render)
+
+On Render, uvicorn trusts `X-Forwarded-For` (`--forwarded-allow-ips '*'`), needed so rate limits
+are per client rather than collapsed to Render's shared proxy IP. However, because uvicorn trusts
+the header, a client could spoof the `X-Forwarded-For` header to dodge per-IP rate limits. This
+residual risk is accepted for the academic deployment.
+
