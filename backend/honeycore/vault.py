@@ -51,7 +51,7 @@ SCHEME = "HE-PCFG-v1/AES-256-CTR/argon2id"
 KDF_ALG = "argon2id"
 MAX_SERVICE_LEN = 128  # docs/api-contract.md §0.5 (frozen)
 DEFAULT_MODEL_IDS: dict[str, str] = {
-    "password_model": "pcfg-password-v1",
+    "password_model": "pcfg-password-v2",
     "username_model": "pcfg-username-v1",
 }
 

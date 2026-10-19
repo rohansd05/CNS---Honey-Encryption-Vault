@@ -324,6 +324,27 @@ def test_read_corpus_and_heldout_split() -> None:
     assert all(is_heldout(row.split("\t")[0]) for row in written)
 
 
+def test_heldout_sample_is_seeded_random_not_first_n() -> None:
+    held = [w for w in (f"pw{i}" for i in range(5000)) if is_heldout(w)]
+    pairs = [(w, i + 1) for i, w in enumerate(held)]
+
+    def sample(seed: int) -> list[str]:
+        out = io.StringIO()
+        stats = dict.fromkeys(["kept", "heldout", "heldout_written"], 0)
+        assert list(split_heldout(iter(pairs), out, 50, stats, seed)) == []
+        assert stats == {"kept": 0, "heldout": len(held), "heldout_written": 50}
+        return out.getvalue().splitlines()
+
+    rows = sample(7)
+    assert rows == sample(7)  # reproducible
+    assert rows != sample(8)
+    assert rows != [f"{w}\t{c}" for w, c in pairs[:50]]  # not the first N
+    order = [held.index(r.split("\t")[0]) for r in rows]
+    assert order == sorted(order)  # corpus order, real weights kept
+    assert all(r == f"{held[i]}\t{i + 1}" for r, i in zip(rows, order, strict=True))
+    assert max(order) > len(held) // 2  # draws from the whole split
+
+
 def test_read_corpus_respects_max_lines_and_plain_weights() -> None:
     stream = io.BytesIO(b"first\nsecond\nthird\nfourth\n")
     stats = dict.fromkeys(["lines", "malformed", "invalid", "valid"], 0)

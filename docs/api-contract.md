@@ -64,6 +64,7 @@ Every non-2xx response has a JSON body:
 | `POST /auth/login` | `RATE_LIMIT_LOGIN` = `5/minute` | client IP |
 | `POST /auth/register` | `RATE_LIMIT_LOGIN` **(accepted, Phase 0)** | client IP |
 | `POST /vault/unlock` | `RATE_LIMIT_UNLOCK` = `10/minute` | user id (from JWT) |
+| `/attack/*` | `10/minute` | client IP |
 
 Exceeded → **429** `{"detail":"Rate limit exceeded"}` with a `Retry-After` header (seconds).
 T2 must replace slowapi's default `{"error": ...}` body with this shape.
@@ -86,7 +87,7 @@ Master-password validation on unlock/add/update must depend **only on the input 
 
 ### `GET /health` — no auth
 ```json
-200 {"status": "ok", "version": "0.1.0", "honeycore_impl": "stub", "honeychecker": "ok"}
+200 {"status": "ok", "version": "0.1.0", "honeycore_impl": "real", "honeychecker": "ok"}
 ```
 `honeycore_impl`: `"stub" | "real"`. `honeychecker`: `"ok" | "down" | "unknown"` — `"unknown"`
 means not checked (the Phase 0 scaffold always returns it until T2 wires the honeychecker ping).
@@ -177,7 +178,7 @@ Request: same body as POST. Re-encrypts only that entry.
 {"format": "honeyvault", "version": 1, "scheme": "HE-PCFG-v1/AES-256-CTR/argon2id",
  "kdf": {"alg": "argon2id", "profile": "default", "salt": "<b64 16B>", "time_cost": 3,
          "memory_cost_kib": 65536, "parallelism": 4, "hash_len": 32},
- "dte": {"password_model": "pcfg-password-v1", "username_model": "pcfg-username-v1", "entry_seed_len": 532},
+ "dte": {"password_model": "pcfg-password-v2", "username_model": "pcfg-username-v1", "entry_seed_len": 532},
  "entries": [{"id": "<uuid4>", "service": "github.com", "nonce": "<b64 16B>",
               "ciphertext": "<b64 532B>", "created_at": "<ISO8601>", "updated_at": "<ISO8601>"}]}
 ```
@@ -193,7 +194,7 @@ carry `stub` labels.
 200 {"username": "bob", "public_key_pem": "-----BEGIN PUBLIC KEY-----\n…",
      "certificate_pem": "-----BEGIN CERTIFICATE-----\n…"}
 ```
-`404 {"detail": "User not found"}`
+`404 {"detail": "User not found"}` · `409 {"detail": "User has no identity keys"}`
 
 ---
 
@@ -205,7 +206,9 @@ Request: `{"master_password": "…", "entry_id": "9b1e…", "recipient_username"
 |---|---|
 | 201 | `{"share_id": "c71d…"}` |
 | 404 | `{"detail": "Entry not found"}` / `{"detail": "User not found"}` |
+| 409 | `{"detail": "User has no identity keys"}` |
 | 422 | `{"detail": "Cannot share with yourself"}` **(accepted, Phase 0)** |
+| 503 | `{"detail": "Sharing unavailable: PKI not configured"}` |
 
 A wrong master password produces a share of the decoy entry (consistent with HE; documented).
 
@@ -246,6 +249,7 @@ Requires `DEMO_MODE=true` (otherwise 404).
 ## 6. Admin
 
 ### `GET /admin/alerts` — JWT, `is_admin` required
+Query parameter: `limit` (optional integer, 1–1000, default 50).
 ```json
 200 [{"id": "a1…", "username": "demo", "kind": "HONEYWORD_LOGIN", "severity": "critical",
       "sweetword_index": 7, "source_ip": "203.0.113.9", "user_agent": "curl/8.5",
@@ -329,10 +333,10 @@ Auth failure → `401 {"detail": "Unauthorized"}`. `/hc/health` is unauthenticat
 
 | Method | Path | Request | Response |
 |---|---|---|---|
-| GET | `/hc/health` | – | `200 {"status": "ok", "service": "honeychecker", "version": "0.1.0"}` |
+| GET | `/hc/health` | – | `200 {"status": "ok", "service": "honeychecker", "version": "0.1.0", "db": "ok"}` |
 | POST | `/hc/register` | `{"user_id": "3f0c…", "index": 4}` | `201 {"status": "registered"}`; `409 {"detail": "Already registered"}`; `422` if `index` < 0 |
 | POST | `/hc/check` | `{"user_id": "3f0c…", "index": 7}` | `200 {"match": false}` (a mismatch is logged as an alarm); `404 {"detail": "Unknown user"}` |
-| GET | `/hc/alarms` | – | `200 [{"id": 1, "user_id": "3f0c…", "submitted_index": 7, "created_at": "…"}]` newest first |
+| GET | `/hc/alarms` | `?limit=50` (optional, 1–1000, default 50) | `200 [{"id": 1, "user_id": "3f0c…", "submitted_index": 7, "created_at": "…"}]` newest first |
 
 API behaviour: any honeychecker error, timeout (`HONEYCHECKER_TIMEOUT_SECONDS`) or non-2xx during
 login → `503` to the client (fail closed). The API never stores the real index.

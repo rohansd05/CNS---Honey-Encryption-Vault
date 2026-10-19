@@ -294,8 +294,12 @@ def open_share(
     )
 
 
-def tamper_share(db: Session, share_id: str) -> bool:
-    """Flip one byte in the ciphertext of a stored share envelope (DEMO_MODE only)."""
+def tamper_share(db: Session, user: User, share_id: str) -> bool:
+    """Flip one byte in the ciphertext of a stored share envelope (DEMO_MODE only).
+
+    Only the share's sender or recipient may tamper; anyone else gets the same 404 as a
+    missing share so existence is not leaked.
+    """
     settings = get_settings()
     if not settings.demo_mode:
         raise HTTPException(
@@ -304,7 +308,7 @@ def tamper_share(db: Session, share_id: str) -> bool:
         )
 
     share = db.get(Share, share_id)
-    if share is None:
+    if share is None or user.id not in (share.sender_id, share.recipient_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Share not found",

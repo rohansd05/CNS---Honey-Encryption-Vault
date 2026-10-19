@@ -8,7 +8,9 @@ Built by **Ocean's 10** for *Cryptography & Network Security (CE305/CS305)*,
 Applied Cryptography and Network Security Design Challenge (ACNS-DC) 2026-27,
 Sardar Patel Institute of Technology, Mumbai.
 
-**Live demo:** _coming soon_ · **API docs:** _coming soon_ · **Report:** `docs/eval-report.md`
+**Live demo:** https://honeyvault-three.vercel.app · **API health:** https://honeyvault-api.onrender.com/api/health · **API contract:** [`docs/api-contract.md`](docs/api-contract.md) · **Report:** [`docs/eval-report.md`](docs/eval-report.md)
+
+> Free-tier hosting: services sleep after 15 min idle, so the first load can take about a minute.
 
 ---
 
@@ -83,7 +85,7 @@ python -m eval.run_all               # chi-squared, classifier, attack compariso
 | T2 Backend API & Honeywords | Tanuj (@tanujb03), Rohan (@rohansd05) |
 | T3 Frontend | Krrish (@krrishgadekar), Chetan (@ChetanC09) |
 | T4 Security Infra & Deployment | Vedant (@vedantghuge22-hash), Parth (@Pgogg) |
-| T5 Utilities & Tooling | Tanmay (TBD), Aryan (TBD) |
+| T5 Utilities & Tooling | Tanmay (@tanmay916200), Aryan (@aryangosavi76) |
 
 ## Limitations
 Academic prototype — not a production password manager. A mistyped master password silently

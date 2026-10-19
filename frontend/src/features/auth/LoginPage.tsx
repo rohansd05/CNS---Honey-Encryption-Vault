@@ -138,7 +138,7 @@ export function LoginPage() {
               <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] p-3 space-y-2 text-xs">
                 <div className="flex items-center justify-between text-[var(--text-muted)] font-medium">
                   <span className="flex items-center gap-1.5 text-[var(--accent)]">
-                    <Sparkles className="h-3.5 w-3.5" /> Demo Accounts
+                    <Sparkles className="h-3.5 w-3.5" /> Public demo accounts (shared test data)
                   </span>
                   <span>Click to auto-fill</span>
                 </div>
@@ -149,7 +149,7 @@ export function LoginPage() {
                     size="sm"
                     className="h-7 text-xs font-mono border-[var(--border)] hover:bg-[var(--bg-hover)]"
                     onClick={() => {
-                      fillCredentials('demo', 'demo-login-pass');
+                      fillCredentials('demo', 'demologin');
                     }}
                   >
                     User: demo
@@ -160,7 +160,18 @@ export function LoginPage() {
                     size="sm"
                     className="h-7 text-xs font-mono border-[var(--border)] hover:bg-[var(--bg-hover)]"
                     onClick={() => {
-                      fillCredentials('admin', 'admin-pass');
+                      fillCredentials('bob', 'boblogin');
+                    }}
+                  >
+                    User: bob
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs font-mono border-[var(--border)] hover:bg-[var(--bg-hover)]"
+                    onClick={() => {
+                      fillCredentials('admin', 'adminlogin');
                     }}
                   >
                     Admin: admin

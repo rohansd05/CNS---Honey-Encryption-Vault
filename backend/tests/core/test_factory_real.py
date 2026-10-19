@@ -72,7 +72,7 @@ def test_real_vault_uses_pcfg_entry_dte(real: HoneyCore) -> None:
     blob = vault.to_dict()
     assert blob["scheme"] == SCHEME
     assert blob["dte"] == {
-        "password_model": "pcfg-password-v1",
+        "password_model": "pcfg-password-v2",
         "username_model": "pcfg-username-v1",
         "entry_seed_len": ENTRY_SEED_LEN,
     }

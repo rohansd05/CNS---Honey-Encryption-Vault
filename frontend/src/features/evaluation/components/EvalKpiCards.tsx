@@ -20,6 +20,7 @@ interface EvalKpiCardsProps {
 
 function formatPValue(p: number | undefined): string {
   if (p === undefined) return 'N/A';
+  if (p <= 1e-300) return '< 1e-300';
   if (p < 0.001) {
     const exp = p.toExponential(1);
     return exp.replace('e', ' × 10^');
@@ -48,13 +49,26 @@ export function EvalKpiCards({ data }: EvalKpiCardsProps) {
   const target = data.distinguisher.target_accuracy;
   const targetPercent = (target * 100).toFixed(0);
   const isAboveTarget = accuracy > target;
+  const distinctResults = data.distinguisher.distinct_results;
+  const bestDistinctAccuracy = distinctResults
+    ? Math.max(
+        distinctResults.logreg?.accuracy_mean ?? 0,
+        distinctResults.random_forest?.accuracy_mean ?? 0,
+      )
+    : null;
 
   // Card 3 values
   const alpha = data.chi_squared.alpha ?? 0.05;
+  const isPit = data.chi_squared.password?.seed_pit_uniformity !== undefined;
+  const seedTestLabel = isPit ? 'PIT' : 'Byte';
   const seedP =
+    data.chi_squared.password?.seed_pit_uniformity?.p_value ??
     data.chi_squared.password?.seed_byte_uniformity?.p_value ??
     data.chi_squared.seed_uniformity?.p_value;
-  const controlP = data.chi_squared.password?.seed_int_uniformity_control?.p_value;
+  const controlP = isPit
+    ? (data.chi_squared.password?.seed_pit_uniformity_control?.p_value ??
+       data.chi_squared.password?.seed_int_uniformity_control?.p_value)
+    : data.chi_squared.password?.seed_int_uniformity_control?.p_value;
   const templateP =
     data.chi_squared.password?.template_goodness_of_fit?.p_value ??
     data.chi_squared.template_goodness_of_fit?.p_value;
@@ -161,7 +175,9 @@ export function EvalKpiCards({ data }: EvalKpiCardsProps) {
                 </div>
                 {isAboveTarget ? (
                   <div className="text-xs text-amber-500/90 mt-1 flex items-start gap-1">
-                    <span>Exceeds target ({accuracyPercent}% vs ≤{targetPercent}%) due to string overlap.</span>
+                    <span>
+                      Exceeds target ({accuracyPercent}% vs ≤{targetPercent}%){bestDistinctAccuracy !== null ? `; drops to ${(bestDistinctAccuracy * 100).toFixed(1)}% on distinct strings.` : ' due to repeated strings across folds.'}
+                    </span>
                     <a
                       href="https://github.com/rohansd05/CNS---Honey-Encryption-Vault/blob/dev/docs/eval-report.md#43-distinguisher-0741-overall-mostly-from-repeated-strings-partly-from-real-mismatch"
                       target="_blank"
@@ -175,7 +191,7 @@ export function EvalKpiCards({ data }: EvalKpiCardsProps) {
                 ) : (
                   <div className="flex items-center gap-1.5 text-xs text-text-secondary mt-1">
                     <span className="inline-block w-2 h-2 rounded-full bg-accent" />
-                    <span>Reference: <strong>0.50</strong> (Random Guessing)</span>
+                    <span>Reference: <strong>{(data.distinguisher.ideal_accuracy * 100).toFixed(0)}%</strong> (Random Guessing)</span>
                   </div>
                 )}
               </div>
@@ -196,7 +212,7 @@ export function EvalKpiCards({ data }: EvalKpiCardsProps) {
           <Card className="h-full border-border bg-bg-surface hover:border-accent/40 transition-all duration-200 shadow-card relative overflow-hidden group">
             <div
               className={`absolute top-0 left-0 right-0 h-1 ${
-                seedPass ? 'bg-gradient-to-r from-blue-500 to-cyan-400' : 'bg-amber-500'
+                seedPass ? 'bg-gradient-to-r from-blue-500 to-cyan-400' : 'bg-red-500'
               }`}
             />
             <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
@@ -212,7 +228,7 @@ export function EvalKpiCards({ data }: EvalKpiCardsProps) {
                       </button>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      Evaluates encoded seed uniformity (p &gt; 0.05) and decoded template goodness-of-fit. Held-out seed uniformity fails due to model fit, while the integer codec control passes honestly.
+                      Evaluates encoded {seedTestLabel.toLowerCase()} seed uniformity (p &gt; {alpha}) and decoded template goodness-of-fit. Held-out seed uniformity fails due to model fit, while the integer codec control passes honestly.
                     </TooltipContent>
                   </Tooltip>
                 </div>
@@ -224,21 +240,21 @@ export function EvalKpiCards({ data }: EvalKpiCardsProps) {
               <div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-extrabold text-text-primary tracking-tight font-mono">
-                    {seedPass ? `p=${formatPValue(seedP)}` : 'Seed: FAIL'}
+                    {seedPass ? `${seedTestLabel} p=${formatPValue(seedP)}` : `${seedTestLabel}: FAIL`}
                   </span>
                   <Badge
                     variant="outline"
                     className={
                       seedPass
                         ? 'bg-success/15 text-success border-success/30 text-[11px] font-semibold'
-                        : 'bg-amber-500/15 text-amber-500 border-amber-500/30 text-[11px] font-semibold'
+                        : 'bg-red-500/15 text-red-400 border-red-500/30 text-[11px] font-semibold'
                     }
                   >
-                    {seedPass ? 'PASS (p > α)' : 'FAIL (p < α)'}
+                    {seedPass ? 'PASS (p > α)' : 'FAIL (p ≤ α)'}
                   </Badge>
                 </div>
                 <p className="text-xs text-text-secondary mt-1">
-                  Seed p = {formatPValue(seedP)} | Control p = {formatPValue(controlP)}
+                  {seedTestLabel} p = {formatPValue(seedP)} | Control p = {formatPValue(controlP)}
                 </p>
               </div>
 

@@ -46,8 +46,8 @@
 
 ## Model-version requirements & artifact integrity
 - **Declared model identifiers in exported vaults**: Every exported vault blob v1 explicitly
-  declares its DTE model identifiers (`dte.password_model` and `dte.username_model`, e.g.
-  `"pcfg-password-v1"` and `"pcfg-username-v1"`).
+  declares its DTE model identifiers (`dte.password_model` and `dte.username_model`, currently
+  `"pcfg-password-v2"` and `"pcfg-username-v1"`).
 - **Fail-closed validation on import**: `HoneyVault.from_dict()` validates the declared
   `password_model` and `username_model` against the active DTE engine. If a vault specifies an
   unsupported or mismatched model ID, import fails closed with `VaultFormatError` rather than
@@ -62,14 +62,16 @@
   frequencies. Correct vault recovery strictly requires the exact probability distribution and
   weights used during encryption. Decoding an authentic ciphertext with a different model or
   retrained weights produces incorrect plaintext, even with the correct master password.
-- **Canonical password model status**:
-  - The canonical password model remains `pcfg-password-v1`
-    (`pcfg_password_v1.json.gz`, SHA-256 `f2ba0b8ab81e06aded1b456c0dc1c8fbf0e46e10d21dd0628346994a64a7a83d`)
-    under Option B, trained on RockYou with Zipf rank weights.
-  - The staging deployment evaluated `pcfg-password-v2` (`pcfg_password_v2.json.gz`, SHA-256
+- **Canonical model status** (ADR-007):
+  - The canonical password model is `pcfg-password-v2` (`pcfg_password_v2.json.gz`, SHA-256
     `8b225bb35d85624a2da1f4a3611574f2895336030660f2a838a63a3f159e76a6`), trained on
-    `rockyou-withcount` frequency counts.
-  - Staging synchronization to `v1` and live Flow 3 verification remain pending.
+    `rockyou-withcount` real frequency counts (PR #66). It is used on `dev` and on staging.
+  - The username model stays `pcfg-username-v1` (`pcfg_username_v1.json.gz`, SHA-256
+    `ec5ffa2dfe40b0f469e8fe1ec74b37f67eb7b03e720edbe3abe9f89a57a26578`); there is no username v2
+    (`docs/eval-report.md` §6).
+  - `pcfg-password-v1` (SHA-256
+    `f2ba0b8ab81e06aded1b456c0dc1c8fbf0e46e10d21dd0628346994a64a7a83d`, Zipf rank weights) stays
+    in the manifest only for older artifacts; a vault that declares it fails closed under v2.
 
 ## Security claims & qualification
 To ensure accurate security claims, HoneyVault distinguishes between cryptographic mechanics,
@@ -98,20 +100,22 @@ decoy generation, and statistical resistance:
    - An offline attacker who steals a vault blob can apply statistical classifiers, language models,
      or frequency analyses across candidate decrypted vaults to rank plausible vs. implausible
      candidates.
-   - As measured and documented in `docs/eval-report.md` (10,000 real held-out vs. 10,000 decoys,
-     5-fold cross-validation):
-     - **Passwords**: On the official protocol with replacement, Random Forest achieves **0.748**
-       accuracy (AUC 0.816) due to string repetition and frequency skew in real leak data vs.
-       synthetic PCFG sampling (Logistic Regression achieves 0.506). Under grouped CV (controlling
-       for string memorisation), Random Forest accuracy drops to **0.545** (LR 0.473); on distinct
-       strings only, accuracy is **0.516** (RF) and **0.544** (LR).
-     - **Usernames**: Classifiers achieve **0.823** (official) / **0.738** (grouped) / **0.762**
-       (distinct) accuracy because the model's email-domain heuristic assigns domains to ~45.3% of
-       decoys, whereas the xato evaluation corpus contains only bare usernames without domains.
-     - **Seed uniformity**: Chi-squared tests reject seed uniformity on real held-out data
-       ($p = 6.8 \times 10^{-12}$ for passwords, $p = 4.7 \times 10^{-54}$ for usernames) because
-       empirical password distributions diverge from the PCFG's probability weights. While
-       ciphertext is uniform under AES-CTR, the decrypted plaintexts retain this statistical bias.
+   - As measured and documented in `docs/eval-report.md` (10,000 real held-out vs. 10,000 decoys
+     per class, 5-fold cross-validation, `pcfg-password-v2` / `pcfg-username-v1`):
+     - **Passwords**: On the official protocol (with replacement), Random Forest achieves **0.741**
+       accuracy (AUC 0.815) due to string repetition and frequency skew in real leak data vs.
+       synthetic PCFG sampling (Logistic Regression achieves 0.508). Under grouped CV (controlling
+       for string memorisation) the best accuracy drops to **0.519**; on distinct strings only it
+       is **0.546**.
+     - **Usernames**: Classifiers achieve **0.827** (official) / **0.713** (grouped) / **0.733**
+       (distinct) accuracy, largely because the model's email-domain heuristic adds a domain to
+       about 45% of decoys while the evaluation corpus is mostly bare usernames. With known domains
+       stripped: **0.767** / **0.532** / **0.553**.
+     - **Seed uniformity**: For passwords, the byte and int χ² tests pass (p = 0.18 and 0.86) but
+       cannot see the v2 model's misfit; the randomized PIT seed test rejects uniformity
+       (p < 10⁻³⁰⁰, model-sample control p = 0.64). For usernames, bytes p = 1.4 × 10⁻⁴⁵ and PIT
+       p < 10⁻³⁰⁰. Real values' encoded seeds therefore retain the gap between the empirical
+       distribution and the PCFG's weights, even though ciphertext is uniform under AES-CTR.
 
 5. **Key structural limitations**:
    - **Model-distribution mismatch**: Real user passwords outside the training corpus or with

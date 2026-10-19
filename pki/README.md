@@ -5,7 +5,7 @@ Owner: **T4 — Parth**. Our own two-tier X.509 PKI (PROJECT-BRIEF.md §10).
 ## CA Hierarchy and Trust Domains
 
 HoneyVault uses **two completely separate CA hierarchies** — one for user identity,
-one for service-to-service authentication. This is the key security property of Phase 4.
+one for service-to-service authentication. mTLS is implemented and demonstrated in the local docker-compose overlay (ADR-005).
 
 ### 1. User-identity hierarchy (Root → Issuing CA → user cert)
 
@@ -46,7 +46,7 @@ python pki/make_root_ca.py
 python pki/make_issuing_ca.py
 
 # Service PKI (run once, offline)
-python pki/make_service_ca.py      # <-- NEW in Phase 4
+python pki/make_service_ca.py
 python pki/issue_service_certs.py  # issues from Service CA (not Issuing CA)
 
 # Export base64 env vars for deployment / CI
@@ -75,10 +75,23 @@ Deployments receive certs as base64 env vars (`*_B64` in `.env.example`).
 
 ## mTLS Compose Setup
 
-To run the full stack with mTLS between the API and Honeychecker, use the overlay compose file:
+To run the full stack with mTLS between the API and Honeychecker:
+1. Generate certs (`make_root_ca`, `make_issuing_ca`, `make_service_ca`, `issue_service_certs`, `export_env`)
+2. Start the stack with the mTLS overlay configuration: `docker compose -f docker-compose.yml -f docker-compose.mtls.yml up --build`
+3. Verify mTLS enforcement: `python backend/scripts/verify_mtls.py`
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.mtls.yml up -d --build
+# 1. Generate certs (offline PKI & service certs)
+python pki/make_root_ca.py
+python pki/make_issuing_ca.py
+python pki/make_service_ca.py
+python pki/issue_service_certs.py
+python pki/export_env.py
+
+# 2. Run the stack with mTLS overlay
+docker compose -f docker-compose.yml -f docker-compose.mtls.yml up --build
+
+# 3. Verify mTLS enforcement
 python backend/scripts/verify_mtls.py
 ```
 
@@ -88,7 +101,7 @@ Commands executed:
 
 ```bash
 # 1. Start the stack with the mTLS overlay configuration
-docker compose -f docker-compose.yml -f docker-compose.mtls.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.mtls.yml up --build
 
 # 2. Run the mTLS verification suite
 python backend/scripts/verify_mtls.py

@@ -19,6 +19,9 @@ sit in a training and a test fold, letting a classifier memorise it. Two extra p
 that from real signal: ``grouped`` (``StratifiedGroupKFold`` grouped by string, so every copy of a
 string is in one fold) and ``distinct`` (each class reduced to its distinct strings).
 
+``run(..., transform=f)`` applies ``f`` to every real and decoy value before features; the
+username ``without_domain`` variant uses :func:`strip_known_domain` to drop the email suffix.
+
 This is evaluation code (not ``honeycore`` / ``app``), so it may use ``numpy`` randomness with a
 fixed seed for reproducibility; it never touches master passwords or keys.
 """
@@ -30,6 +33,7 @@ import json
 import math
 import sys
 from collections import Counter
+from collections.abc import Callable, Container
 from pathlib import Path
 from typing import Any
 
@@ -40,7 +44,7 @@ from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold, cross
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from honeycore.dte.pcfg import parse, template
+from honeycore.dte.pcfg import parse, split_email, template
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_HELDOUT_PASSWORDS = REPO / "data" / "processed" / "heldout_passwords.tsv"
@@ -156,6 +160,15 @@ def features(password: str, model: Any = None) -> list[float]:
     ]
 
 
+def strip_known_domain(value: str, domains: Container[str]) -> str:
+    """``value`` without its ``@domain`` suffix iff that domain is in ``domains`` (§7.4 split).
+
+    ``strip_known_domain("john@gmail.com", {"gmail.com"})`` -> ``"john"``; a bare username or an
+    address at a domain not in ``domains`` is returned unchanged.
+    """
+    return split_email(value, domains)[1]
+
+
 # ---------------------------------------------------------------------------------------------
 # Data + classifiers
 # ---------------------------------------------------------------------------------------------
@@ -240,7 +253,13 @@ def _distinct_scores(real_set: list[str], decoy_set: list[str], model: Any, seed
     return _scores(_matrix(values, model), y, folds(values, y, seed), seed)
 
 
-def run(model: Any, heldout_path: str | Path, n: int = 10000, seed: int = 7) -> dict[str, Any]:
+def run(
+    model: Any,
+    heldout_path: str | Path,
+    n: int = 10000,
+    seed: int = 7,
+    transform: Callable[[str], str] | None = None,
+) -> dict[str, Any]:
     """Score how distinguishable ``model``'s decoys are from real held-out values.
 
     Builds ``n`` real values (sampled by weight from ``heldout_path``) and ``n`` decoys
@@ -251,9 +270,20 @@ def run(model: Any, heldout_path: str | Path, n: int = 10000, seed: int = 7) -> 
     Two more protocols on the same samples: ``grouped`` (identical strings never in both train
     and test, :func:`folds`) and ``distinct`` (distinct strings only, see the module docstring).
     Both are ``skipped`` if a class has fewer than ``CV_FOLDS`` distinct strings.
+
+    ``transform``, if given, maps every real and decoy value before anything else; the report's
+    ``transformed`` block counts how many values per class it changed.
     """
     reals = _sample_heldout(heldout_path, n, seed)
     decoys = [model.sample() for _ in range(n)]
+    transformed: dict[str, int] | None = None
+    if transform is not None:
+        new_reals, new_decoys = [transform(v) for v in reals], [transform(v) for v in decoys]
+        transformed = {
+            "real": sum(a != b for a, b in zip(reals, new_reals, strict=True)),
+            "decoy": sum(a != b for a, b in zip(decoys, new_decoys, strict=True)),
+        }
+        reals, decoys = new_reals, new_decoys
     values = [*reals, *decoys]
     x = _matrix(values, model)
     y = np.array([1] * len(reals) + [0] * len(decoys))
@@ -262,6 +292,8 @@ def run(model: Any, heldout_path: str | Path, n: int = 10000, seed: int = 7) -> 
         **_scores(x, y, folds(values, y, seed), seed),
         "interpretation": INTERPRETATION,
     }
+    if transformed is not None:
+        report["transformed"] = transformed
 
     real_set, decoy_set = sorted(set(reals)), sorted(set(decoys))
     grouped: dict[str, Any] = {"n": len(reals), "distinct_strings": len(set(values))}
