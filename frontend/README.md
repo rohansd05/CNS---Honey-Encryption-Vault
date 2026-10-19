@@ -1,7 +1,7 @@
 # HoneyVault Frontend
 
 > **Owner:** Krrish (T3)  
-> **Stack:** Vite · React 18 · TypeScript · Tailwind CSS v4 · shadcn/ui · TanStack Query · MSW
+> **Stack:** Vite · React 18 · TypeScript · Tailwind CSS v3 · shadcn/ui · TanStack Query · MSW
 
 ---
 
@@ -11,7 +11,7 @@
 - The repo-root `.env` file must exist with at minimum:
   ```
   VITE_API_BASE_URL=http://localhost:8000
-  VITE_USE_MOCKS=true
+  VITE_USE_MOCKS=false          # set true only for offline UI work
   ```
 
 ---
@@ -80,12 +80,13 @@ src/
 
 ---
 
-## Mock API (MSW)
+## Mock API (MSW) — optional, offline only
 
-Set `VITE_USE_MOCKS=true` in the repo-root `.env`.  
+MSW mocks are **opt-in**: set `VITE_USE_MOCKS=true` in the repo-root `.env` only when
+you need to develop the UI without a running backend. The default is `false` (real API).  
 Full mock handlers (auth, vault, shares, admin) are added in **K1.2** (`feat/t3-api-auth`).  
-The mock vault simulates honey encryption: the correct master password (`correct horse`) returns the
-real entries + sigil; any other password returns a deterministic decoy vault.
+The **mock-only** master password (`correct horse`) returns fake entries + sigil in the
+offline mock; it has no effect on the real API.
 
 ---
 
