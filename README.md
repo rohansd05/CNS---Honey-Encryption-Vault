@@ -85,7 +85,7 @@ python -m eval.run_all               # chi-squared, classifier, attack compariso
 | T2 Backend API & Honeywords | Tanuj (@tanujb03), Rohan (@rohansd05) |
 | T3 Frontend | Krrish (@krrishgadekar), Chetan (@ChetanC09) |
 | T4 Security Infra & Deployment | Vedant (@vedantghuge22-hash), Parth (@Pgogg) |
-| T5 Utilities & Tooling | Tanmay (TBD), Aryan (TBD) |
+| T5 Utilities & Tooling | Tanmay (@tanmay916200), Aryan (@aryangosavi76) |
 
 ## Limitations
 Academic prototype — not a production password manager. A mistyped master password silently
