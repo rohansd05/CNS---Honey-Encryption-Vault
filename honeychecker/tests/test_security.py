@@ -17,21 +17,27 @@ All PKI material is generated in-process; no pki/out/ files are read.
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import socket
+import ssl
+import threading
 import time
 from collections.abc import Generator
+from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+import httpx
 import pytest
+import uvicorn
+from cryptography import x509 as _x509
 from cryptography.hazmat.primitives import serialization
+from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
-
-# ---------------------------------------------------------------------------
-# Import honeycore helpers (backend/ is on sys.path via pyproject.toml)
-# ---------------------------------------------------------------------------
 from honeycore.pki import build_issuing_ca, build_root_ca, generate_ec_key, issue_leaf
 from honeycore.transport import ReplayCache, sign_request
+from pydantic import ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -39,6 +45,7 @@ from sqlalchemy.pool import StaticPool
 from app.config import Settings
 from app.db import Base, get_db
 from app.main import create_app
+from app.security import get_uvicorn_ssl_kwargs, verify_caller
 
 # ---------------------------------------------------------------------------
 # PKI fixtures — generated once per session for speed
@@ -80,6 +87,33 @@ def api_client_cert_pem(service_ca_pem: tuple[bytes, bytes]) -> tuple[bytes, byt
         public_pem=pub_pem,
         days=365,
         eku_client_auth=True,
+    )
+    key_pem = priv.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    return cert_pem, key_pem
+
+
+@pytest.fixture(scope="session")
+def server_cert_pem(service_ca_pem: tuple[bytes, bytes]) -> tuple[bytes, bytes]:
+    """Server leaf cert issued by Service CA (SAN localhost, 127.0.0.1, honeychecker)."""
+    svc_cert, svc_key = service_ca_pem
+    priv = generate_ec_key()
+    pub_pem = priv.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    cert_pem = issue_leaf(
+        issuer_cert_pem=svc_cert,
+        issuer_key_pem=svc_key,
+        cn="honeychecker-server",
+        public_pem=pub_pem,
+        days=365,
+        san_dns=["localhost", "honeychecker"],
+        san_ip=["127.0.0.1"],
+        eku_server_auth=True,
     )
     key_pem = priv.private_bytes(
         encoding=serialization.Encoding.PEM,
@@ -553,3 +587,321 @@ class TestHealthAlwaysOpen:
             with TestClient(application, raise_server_exceptions=False) as client:
                 resp = client.get("/hc/health")
         assert resp.status_code == 200, f"health failed for transport={transport}: {resp.text}"
+
+
+# ---------------------------------------------------------------------------
+# Test: transport configuration validation per environment
+# ---------------------------------------------------------------------------
+
+
+class TestTransportConfigValidation:
+    """Settings must reject unauthenticated plain transport in staging and production."""
+
+    @pytest.mark.parametrize(
+        ("env", "transport"),
+        [
+            ("development", "plain"),
+            ("development", "signed"),
+            ("staging", "signed"),
+            ("production", "signed"),
+        ],
+    )
+    def test_allowed_env_transport_combinations(self, env: str, transport: str) -> None:
+        """Allowed combinations must instantiate without raising ValidationError."""
+        settings = Settings(
+            app_env=env,  # type: ignore[arg-type]
+            hc_transport=transport,  # type: ignore[arg-type]
+            hc_database_url="sqlite:///:memory:",
+        )
+        assert settings.app_env == env
+        assert settings.hc_transport == transport
+
+    @pytest.mark.parametrize("env", ["staging", "production"])
+    def test_plain_transport_rejected_in_non_dev(self, env: str) -> None:
+        """Plain transport in staging/production must raise ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            Settings(
+                app_env=env,  # type: ignore[arg-type]
+                hc_transport="plain",
+                hc_database_url="sqlite:///:memory:",
+            )
+        err_msg = str(exc_info.value)
+        assert "HC_TRANSPORT=plain is permitted only in development" in err_msg
+        assert f"current APP_ENV='{env}'" in err_msg
+
+    def test_plain_transport_allowed_with_default_env(self) -> None:
+        """When app_env is omitted, default development environment allows plain transport."""
+        settings = Settings(
+            hc_transport="plain",
+            hc_database_url="sqlite:///:memory:",
+        )
+        assert settings.app_env == "development"
+        assert settings.hc_transport == "plain"
+
+
+# ---------------------------------------------------------------------------
+# Test: mTLS Transport Configuration & Handshake Enforcement
+# ---------------------------------------------------------------------------
+
+
+class TestMTLSTransport:
+    """Test mTLS transport enforcement, configuration validation, and TLS handshake."""
+
+    def test_get_uvicorn_ssl_kwargs_success(
+        self,
+        tmp_path: Path,
+        service_ca_pem: tuple[bytes, bytes],
+        server_cert_pem: tuple[bytes, bytes],
+    ) -> None:
+        """When files exist and are valid, returns valid Uvicorn SSL kwargs."""
+        svc_cert, _ = service_ca_pem
+        srv_cert, srv_key = server_cert_pem
+
+        ca_file = tmp_path / "service-ca.crt"
+        cert_file = tmp_path / "honeychecker-server.crt"
+        key_file = tmp_path / "honeychecker-server.key"
+
+        ca_file.write_bytes(svc_cert)
+        cert_file.write_bytes(srv_cert)
+        key_file.write_bytes(srv_key)
+
+        settings = Settings(
+            hc_transport="mtls",
+            hc_server_cert_path=str(cert_file),
+            hc_server_key_path=str(key_file),
+            hc_trusted_ca_cert_path=str(ca_file),
+        )
+
+        ssl_kwargs = get_uvicorn_ssl_kwargs(settings)
+        assert ssl_kwargs["ssl_certfile"] == str(cert_file)
+        assert ssl_kwargs["ssl_keyfile"] == str(key_file)
+        assert ssl_kwargs["ssl_ca_certs"] == str(ca_file)
+        assert ssl_kwargs["ssl_cert_reqs"] == ssl.CERT_REQUIRED
+
+    def test_get_uvicorn_ssl_kwargs_plain_or_signed_returns_empty(self) -> None:
+        """Plain and signed transport modes return empty dict for Uvicorn SSL kwargs."""
+        plain_settings = Settings(hc_transport="plain")
+        assert get_uvicorn_ssl_kwargs(plain_settings) == {}
+
+        signed_settings = Settings(hc_transport="signed")
+        assert get_uvicorn_ssl_kwargs(signed_settings) == {}
+
+    def test_get_uvicorn_ssl_kwargs_missing_files_fails_closed(
+        self,
+        tmp_path: Path,
+        service_ca_pem: tuple[bytes, bytes],
+        server_cert_pem: tuple[bytes, bytes],
+    ) -> None:
+        """Missing certificate, key, or CA must raise RuntimeError (fail closed)."""
+        svc_cert, _ = service_ca_pem
+        srv_cert, srv_key = server_cert_pem
+
+        ca_file = tmp_path / "service-ca.crt"
+        cert_file = tmp_path / "honeychecker-server.crt"
+        key_file = tmp_path / "honeychecker-server.key"
+
+        ca_file.write_bytes(svc_cert)
+        cert_file.write_bytes(srv_cert)
+        key_file.write_bytes(srv_key)
+
+        # Missing CA
+        s_no_ca = Settings(
+            hc_transport="mtls",
+            hc_server_cert_path=str(cert_file),
+            hc_server_key_path=str(key_file),
+            hc_trusted_ca_cert_path=str(tmp_path / "missing-ca.crt"),
+        )
+        with pytest.raises(RuntimeError, match="Service CA certificate"):
+            get_uvicorn_ssl_kwargs(s_no_ca)
+
+        # Missing Server Cert
+        s_no_cert = Settings(
+            hc_transport="mtls",
+            hc_server_cert_path=str(tmp_path / "missing-cert.crt"),
+            hc_server_key_path=str(key_file),
+            hc_trusted_ca_cert_path=str(ca_file),
+        )
+        with pytest.raises(RuntimeError, match="server certificate"):
+            get_uvicorn_ssl_kwargs(s_no_cert)
+
+        # Missing Server Key
+        s_no_key = Settings(
+            hc_transport="mtls",
+            hc_server_cert_path=str(cert_file),
+            hc_server_key_path=str(tmp_path / "missing-key.key"),
+            hc_trusted_ca_cert_path=str(ca_file),
+        )
+        with pytest.raises(RuntimeError, match="server private key"):
+            get_uvicorn_ssl_kwargs(s_no_key)
+
+    def test_mtls_verify_caller_rejects_plain_http(self) -> None:
+        """When HC_TRANSPORT=mtls, plain HTTP requests are rejected with 401."""
+        settings = Settings(
+            hc_transport="mtls",
+            hc_database_url="sqlite:///:memory:",
+        )
+
+        with (
+            patch("app.security.get_settings", return_value=settings),
+            patch("app.config.get_settings", return_value=settings),
+        ):
+            req_http = Request(
+                {
+                    "type": "http",
+                    "scheme": "http",
+                }
+            )
+            with pytest.raises(HTTPException) as exc_info:
+                asyncio.run(verify_caller(req_http))
+            assert exc_info.value.status_code == 401
+            assert exc_info.value.detail == "unauthorized caller"
+
+    def test_mtls_verify_caller_checks_peer_cert_cn(
+        self,
+        api_client_cert_pem: tuple[bytes, bytes],
+        wrong_cn_cert_pem: tuple[bytes, bytes],
+    ) -> None:
+        """When peer cert is present, its CN must match hc_allowed_client_cn."""
+        good_cert_pem, _ = api_client_cert_pem
+        good_cert_der = _x509.load_pem_x509_certificate(good_cert_pem).public_bytes(
+            serialization.Encoding.DER
+        )
+
+        bad_cert_pem, _ = wrong_cn_cert_pem
+        bad_cert_der = _x509.load_pem_x509_certificate(bad_cert_pem).public_bytes(
+            serialization.Encoding.DER
+        )
+
+        settings = Settings(
+            hc_transport="mtls",
+            hc_allowed_client_cn="honeyvault-api",
+            hc_database_url="sqlite:///:memory:",
+        )
+
+        with (
+            patch("app.security.get_settings", return_value=settings),
+            patch("app.config.get_settings", return_value=settings),
+        ):
+            # 1. Matching CN over HTTPS -> passes
+            req_good = Request(
+                {
+                    "type": "http",
+                    "scheme": "https",
+                    "client_cert_der": good_cert_der,
+                }
+            )
+            asyncio.run(verify_caller(req_good))
+
+            # 2. Mismatched CN over HTTPS -> 401
+            req_bad = Request(
+                {
+                    "type": "http",
+                    "scheme": "https",
+                    "client_cert_der": bad_cert_der,
+                }
+            )
+            with pytest.raises(HTTPException) as exc_info:
+                asyncio.run(verify_caller(req_bad))
+            assert exc_info.value.status_code == 401
+            assert exc_info.value.detail == "unauthorized caller"
+
+    def test_real_uvicorn_mtls_handshake_lifecycle(
+        self,
+        tmp_path: Path,
+        service_ca_pem: tuple[bytes, bytes],
+        server_cert_pem: tuple[bytes, bytes],
+        api_client_cert_pem: tuple[bytes, bytes],
+        user_identity_cert_pem: tuple[bytes, bytes],
+        db_session: Session,
+    ) -> None:
+        """Verify actual mTLS handshake with a live Uvicorn server in a background thread."""
+        svc_cert, _ = service_ca_pem
+        srv_cert, srv_key = server_cert_pem
+        cli_cert, cli_key = api_client_cert_pem
+        bad_cert, bad_key = user_identity_cert_pem
+
+        ca_file = tmp_path / "service-ca.crt"
+        srv_cert_file = tmp_path / "honeychecker-server.crt"
+        srv_key_file = tmp_path / "honeychecker-server.key"
+        cli_cert_file = tmp_path / "api-client.crt"
+        cli_key_file = tmp_path / "api-client.key"
+        bad_cert_file = tmp_path / "bad-client.crt"
+        bad_key_file = tmp_path / "bad-client.key"
+
+        ca_file.write_bytes(svc_cert)
+        srv_cert_file.write_bytes(srv_cert)
+        srv_key_file.write_bytes(srv_key)
+        cli_cert_file.write_bytes(cli_cert)
+        cli_key_file.write_bytes(cli_key)
+        bad_cert_file.write_bytes(bad_cert)
+        bad_key_file.write_bytes(bad_key)
+
+        settings = Settings(
+            hc_transport="mtls",
+            hc_server_cert_path=str(srv_cert_file),
+            hc_server_key_path=str(srv_key_file),
+            hc_trusted_ca_cert_path=str(ca_file),
+            hc_database_url="sqlite:///:memory:",
+        )
+
+        app = create_app()
+
+        def override_get_db() -> Generator[Session, None, None]:
+            yield db_session
+
+        app.dependency_overrides[get_db] = override_get_db
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+        sock.close()
+
+        ssl_kwargs = get_uvicorn_ssl_kwargs(settings)
+        config = uvicorn.Config(
+            app,
+            host="127.0.0.1",
+            port=port,
+            log_level="error",
+            **ssl_kwargs,
+        )
+        server = uvicorn.Server(config)
+        thread = threading.Thread(target=server.run, daemon=True)
+        thread.start()
+
+        time.sleep(1)
+        base_url = f"https://127.0.0.1:{port}"
+
+        try:
+            # 1. Valid client cert -> TLS handshake succeeds
+            client_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            client_ctx.load_verify_locations(str(ca_file))
+            client_ctx.load_cert_chain(str(cli_cert_file), str(cli_key_file))
+            client_ctx.check_hostname = False
+
+            with httpx.Client(verify=client_ctx, base_url=base_url) as client:
+                resp = client.get("/hc/health")
+                assert resp.status_code == 200
+                assert resp.json()["status"] == "ok"
+
+            # 2. No client cert -> TLS handshake fails
+            no_cert_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            no_cert_ctx.load_verify_locations(str(ca_file))
+            no_cert_ctx.check_hostname = False
+
+            with pytest.raises((httpx.TransportError, ssl.SSLError)):
+                with httpx.Client(verify=no_cert_ctx, base_url=base_url) as client:
+                    client.get("/hc/health")
+
+            # 3. Untrusted client cert -> TLS handshake fails
+            untrusted_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            untrusted_ctx.load_verify_locations(str(ca_file))
+            untrusted_ctx.load_cert_chain(str(bad_cert_file), str(bad_key_file))
+            untrusted_ctx.check_hostname = False
+
+            with pytest.raises((httpx.TransportError, ssl.SSLError)):
+                with httpx.Client(verify=untrusted_ctx, base_url=base_url) as client:
+                    client.get("/hc/health")
+
+        finally:
+            server.should_exit = True
+            thread.join(timeout=3)

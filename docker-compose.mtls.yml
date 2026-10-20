@@ -14,4 +14,3 @@ services:
       - ./pki/out:/pki/out:ro
     environment:
       HC_TRANSPORT: mtls
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--ssl-certfile", "/pki/out/honeychecker-server.crt", "--ssl-keyfile", "/pki/out/honeychecker-server.key", "--ssl-ca-certs", "/pki/out/service-ca.crt", "--ssl-cert-reqs", "2"]
