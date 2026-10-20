@@ -21,12 +21,13 @@ from __future__ import annotations
 
 import base64
 import logging
+import ssl
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException, Request, status
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 
 if TYPE_CHECKING:
     pass  # kept for future type-only imports
@@ -96,6 +97,99 @@ def _validate_signed_config() -> None:
     settings = get_settings()
     if settings.hc_transport == "signed":
         _load_trusted_ca_pems(settings)  # raises RuntimeError if config absent
+
+
+def _validate_mtls_config(settings: Settings) -> tuple[Path, Path, Path]:
+    """Validate mTLS certificates, private key, and CA trust store.
+
+    Raises RuntimeError if any required file or certificate is missing or invalid.
+    Returns (server_cert_path, server_key_path, ca_cert_path).
+    """
+    # 1. Trusted Service CA
+    ca_path = Path(settings.hc_trusted_ca_cert_path)
+    if not ca_path.is_file():
+        raise RuntimeError(
+            f"mTLS transport requires a Service CA certificate. "
+            f"File not found: '{settings.hc_trusted_ca_cert_path}'"
+        )
+    try:
+        from cryptography import x509 as _x509
+
+        ca_data = ca_path.read_bytes()
+        _x509.load_pem_x509_certificate(ca_data)
+    except Exception as exc:
+        raise RuntimeError(
+            f"Invalid Service CA certificate PEM '{settings.hc_trusted_ca_cert_path}': {exc}"
+        ) from exc
+
+    # 2. Server Certificate
+    cert_path = Path(settings.hc_server_cert_path)
+    if not cert_path.is_file():
+        raise RuntimeError(
+            f"mTLS transport requires a server certificate. "
+            f"File not found: '{settings.hc_server_cert_path}'"
+        )
+    try:
+        cert_data = cert_path.read_bytes()
+        _x509.load_pem_x509_certificate(cert_data)
+    except Exception as exc:
+        raise RuntimeError(
+            f"Invalid server certificate PEM '{settings.hc_server_cert_path}': {exc}"
+        ) from exc
+
+    # 3. Server Private Key
+    key_path = Path(settings.hc_server_key_path)
+    if not key_path.is_file():
+        raise RuntimeError(
+            f"mTLS transport requires a server private key. "
+            f"File not found: '{settings.hc_server_key_path}'"
+        )
+    try:
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import ec
+
+        key_data = key_path.read_bytes()
+        priv = serialization.load_pem_private_key(key_data, password=None)
+        if not isinstance(priv, ec.EllipticCurvePrivateKey):
+            raise RuntimeError("Server private key must be an EC private key")
+    except RuntimeError:
+        raise
+    except Exception as exc:
+        raise RuntimeError(
+            f"Invalid server private key PEM '{settings.hc_server_key_path}': {exc}"
+        ) from exc
+
+    return cert_path, key_path, ca_path
+
+
+def get_uvicorn_ssl_kwargs(settings: Settings | None = None) -> dict[str, Any]:
+    """Return SSL keyword arguments for uvicorn matching HC_TRANSPORT.
+
+    - ``mtls``: returns ssl kwargs (``ssl_certfile``, ``ssl_keyfile``, ``ssl_ca_certs``,
+      ``ssl_cert_reqs``).
+      Fails closed (raises RuntimeError) if certificates or keys are missing or invalid.
+    - ``plain`` / ``signed``: returns ``{}``.
+    """
+    s = settings or get_settings()
+    if s.hc_transport != "mtls":
+        return {}
+
+    cert_path, key_path, ca_path = _validate_mtls_config(s)
+    return {
+        "ssl_certfile": str(cert_path),
+        "ssl_keyfile": str(key_path),
+        "ssl_ca_certs": str(ca_path),
+        "ssl_cert_reqs": ssl.CERT_REQUIRED,
+    }
+
+
+def validate_transport_config(settings: Settings | None = None) -> None:
+    """Fail fast if the selected transport mode's credentials are absent or invalid."""
+    s = settings or get_settings()
+    if s.hc_transport == "signed":
+        _load_trusted_ca_pems(s)
+    elif s.hc_transport == "mtls":
+        _validate_mtls_config(s)
 
 
 # ---------------------------------------------------------------------------
@@ -188,24 +282,28 @@ async def verify_caller(request: Request) -> None:
     # mtls — docker-compose; uvicorn enforces the TLS handshake.
     # ------------------------------------------------------------------
     if transport == "mtls":
-        # Uvicorn with --ssl-cert-reqs 2 (CERT_REQUIRED) and
-        # --ssl-ca-certs = service-ca.crt has already verified the chain at
-        # the TLS layer before this coroutine runs.  We add a CN check when
-        # the ASGI scope exposes the peer certificate.
-        #
-        # NOTE: Starlette / uvicorn do not standardise how TLS peer certs
-        # appear in the ASGI scope.  If the field is absent we trust that the
-        # TLS handshake was the gatekeeper.  The Service CA only ever issues
-        # the api-client cert, so any valid mTLS peer is already the API.
         scope = request.scope
+        # Verify request arrived over HTTPS. Plain HTTP requests are rejected.
+        if scope.get("scheme") != "https":
+            logger.warning(
+                "verify_caller: mTLS transport requires HTTPS scheme, got %r",
+                scope.get("scheme"),
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="unauthorized caller",
+            )
+
         tls_ext = scope.get("extensions", {})
         peer_cert_der: bytes | None = None
 
         # uvicorn may expose the peer cert under scope["extensions"]["tls"]
-        # as a dict with key "client_cert_der" or similar.
+        # as a dict with key "client_cert_der" or directly in scope.
         tls_info = tls_ext.get("tls", {})
         if isinstance(tls_info, dict):
             peer_cert_der = tls_info.get("client_cert_der")
+        if peer_cert_der is None and "client_cert_der" in scope:
+            peer_cert_der = scope["client_cert_der"]
 
         if peer_cert_der is not None:
             # Parse the DER cert and check the CN.

@@ -203,8 +203,12 @@ class PKI(PKIAPI):
         *,
         expected_cn: str | None = None,
         require_client_auth: bool = False,
+        expected_root_cn: str | None = None,
     ) -> CertInfo:
         try:
+            if not trusted_ca_pems:
+                raise InvalidSignatureError("Trust store is empty.")
+
             cert = x509.load_pem_x509_certificate(cert_pem)
             trusted_certs = [x509.load_pem_x509_certificate(c) for c in trusted_ca_pems]
 
@@ -213,7 +217,19 @@ class PKI(PKIAPI):
             if now < cert.not_valid_before_utc or now > cert.not_valid_after_utc:
                 raise InvalidSignatureError("Certificate is expired or not yet valid.")
 
-            subject_cn = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+            try:
+                cert_bc = cert.extensions.get_extension_for_class(x509.BasicConstraints).value
+                if cert_bc.ca:
+                    raise InvalidSignatureError(
+                        "Certificate is a CA, not an end-entity certificate."
+                    )
+            except x509.ExtensionNotFound:
+                pass
+
+            try:
+                subject_cn = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+            except IndexError:
+                subject_cn = ""
             if expected_cn is not None and subject_cn != expected_cn:
                 raise InvalidSignatureError("CN mismatch.")
 
@@ -228,7 +244,9 @@ class PKI(PKIAPI):
                     ) from None
 
             current = cert
-            chain = []
+            chain: list[x509.Certificate] = []
+            visited_der: set[bytes] = set()
+
             while True:
                 issuer = None
                 for t in trusted_certs:
@@ -243,6 +261,11 @@ class PKI(PKIAPI):
                 if issuer is None:
                     raise InvalidSignatureError("Chain building failed.")
 
+                issuer_der = issuer.public_bytes(serialization.Encoding.DER)
+                if issuer_der in visited_der:
+                    raise InvalidSignatureError("Certificate chain cycle detected.")
+                visited_der.add(issuer_der)
+
                 chain.append(issuer)
 
                 if now < issuer.not_valid_before_utc or now > issuer.not_valid_after_utc:
@@ -256,15 +279,81 @@ class PKI(PKIAPI):
                     raise InvalidSignatureError("Issuer is missing BasicConstraints.") from None
 
                 try:
-                    issuer.verify_directly_issued_by(issuer)
+                    ku = issuer.extensions.get_extension_for_class(x509.KeyUsage).value
+                    if not ku.key_cert_sign:
+                        raise InvalidSignatureError(
+                            "Issuer KeyUsage lacks certificate signing permission (keyCertSign)."
+                        )
+                except x509.ExtensionNotFound:
+                    raise InvalidSignatureError("Issuer is missing KeyUsage extension.") from None
+
+                is_self_signed = False
+                if issuer.issuer == issuer.subject:
+                    try:
+                        issuer.verify_directly_issued_by(issuer)
+                        is_self_signed = True
+                    except Exception:  # noqa: S110
+                        pass
+
+                if is_self_signed:
                     break
-                except Exception:  # noqa: S110
-                    pass
 
                 current = issuer
 
+                if len(chain) > 16:
+                    raise InvalidSignatureError("Certificate chain exceeded maximum depth.")
+
             if not chain:
                 raise InvalidSignatureError("Certificate chain is empty.")
+
+            terminus = chain[-1]
+            if terminus.issuer != terminus.subject:
+                raise InvalidSignatureError("Certificate chain does not terminate at a root CA.")
+            try:
+                terminus.verify_directly_issued_by(terminus)
+            except Exception as exc:
+                raise InvalidSignatureError(
+                    "Chain terminus is not a valid self-signed root CA."
+                ) from exc
+
+            try:
+                terminus_cns = terminus.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+                terminus_cn = terminus_cns[0].value if terminus_cns else ""
+            except Exception:
+                terminus_cn = ""
+
+            trusted_roots = [t for t in trusted_certs if t.issuer == t.subject]
+
+            if expected_root_cn is not None:
+                if terminus_cn != expected_root_cn:
+                    raise InvalidSignatureError(
+                        f"Root CA CN mismatch: expected '{expected_root_cn}', got '{terminus_cn}'."
+                    )
+            elif len(trusted_roots) > 1:
+                primary_root = trusted_roots[0]
+                if terminus.public_bytes(serialization.Encoding.DER) != primary_root.public_bytes(
+                    serialization.Encoding.DER
+                ):
+                    raise InvalidSignatureError(
+                        f"Chain terminated at unintended root CA '{terminus_cn}' "
+                        f"(expected primary root anchor)."
+                    )
+
+            # Validate CA path-length constraints across the chain (RFC 5280 §4.2.1.9)
+            for i, ca in enumerate(chain):
+                ca_bc = ca.extensions.get_extension_for_class(x509.BasicConstraints).value
+                if ca_bc.path_length is not None:
+                    num_intermediates = sum(1 for c in chain[:i] if c.subject != c.issuer)
+                    if num_intermediates > ca_bc.path_length:
+                        try:
+                            ca_cn = ca.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+                        except Exception:
+                            ca_cn = str(ca.subject)
+                        raise InvalidSignatureError(
+                            f"Path length constraint violated for CA '{ca_cn}': "
+                            f"max {ca_bc.path_length} intermediate certs permitted, "
+                            f"but {num_intermediates} found."
+                        )
 
             return self.describe(cert_pem)
 

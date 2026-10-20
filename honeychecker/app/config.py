@@ -8,6 +8,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -43,6 +44,17 @@ class Settings(BaseSettings):
     # makes deployment scripts unambiguous).
     hc_service_ca_cert_path: str = "../pki/out/service-ca.crt"
     hc_service_ca_cert_b64: str = ""
+
+    @model_validator(mode="after")
+    def _validate_transport_for_env(self) -> Settings:
+        """Reject unauthenticated plain transport in non-development environments."""
+        if self.app_env in ("staging", "production") and self.hc_transport == "plain":
+            raise ValueError(
+                f"HC_TRANSPORT=plain is permitted only in development "
+                f"(current APP_ENV={self.app_env!r}). "
+                "Use 'signed' or 'mtls' in staging and production."
+            )
+        return self
 
 
 @lru_cache
