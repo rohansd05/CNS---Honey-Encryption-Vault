@@ -33,8 +33,9 @@ If you need a change elsewhere, write it up as a note for the owning track inste
 - `backend/honeycore/interfaces.py`
 - `docs/api-contract.md`
 - the vault blob format and env var names (PROJECT-BRIEF.md §7, `.env.example`)
-Until a real implementation lands, code against `honeycore/stubs.py` (`HONEYCORE_IMPL=stub`)
-or frontend MSW mocks (`VITE_USE_MOCKS=true`). Never block on another track.
+The real honeycore and API are live. `honeycore/stubs.py` (`HONEYCORE_IMPL=stub`) remains for
+isolated tests; frontend MSW mocks (`VITE_USE_MOCKS=true`) are optional, for offline UI work only.
+Never block on another track.
 
 ## 3. Tech & style
 - **Python 3.12**, type hints everywhere, `ruff` clean (config in `backend/pyproject.toml`),
