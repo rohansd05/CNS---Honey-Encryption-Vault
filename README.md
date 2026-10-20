@@ -8,7 +8,7 @@ Built by **Ocean's 10** for *Cryptography & Network Security (CE305/CS305)*,
 Applied Cryptography and Network Security Design Challenge (ACNS-DC) 2026-27,
 Sardar Patel Institute of Technology, Mumbai.
 
-**Live demo:** https://honeyvault-three.vercel.app · **API health:** https://honeyvault-api.onrender.com/api/health · **API contract:** [`docs/api-contract.md`](docs/api-contract.md) · **Report:** [`docs/eval-report.md`](docs/eval-report.md)
+**Live demo:** https://honeyvault-three.vercel.app · **API health:** https://honeyvault-api.onrender.com/api/health · **API contract:** [`docs/api-contract.md`](docs/api-contract.md) · **Report:** [`docs/eval-report.md`](docs/eval-report.md) · **Demo video:** (link added at release)
 
 > Free-tier hosting: services sleep after 15 min idle, so the first load can take about a minute.
 
@@ -53,14 +53,14 @@ cd CNS---Honey-Encryption-Vault && cp .env.example .env
 cd backend && python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt -r ../honeychecker/requirements.txt
 alembic upgrade head
-python scripts/seed_demo.py          # (available from Phase 2)
+python scripts/seed_demo.py
 uvicorn app.main:app --reload --port 8000
 # new terminal:  cd honeychecker && uvicorn app.main:app --reload --port 8001
 
 # Frontend
 cd frontend && npm install && npm run dev      # http://localhost:5173
 ```
-Full mTLS stack: `docker compose up --build` (see `docs/deployment.md`).
+Full mTLS stack: generate certs (see `pki/README.md`), then `docker compose -f docker-compose.yml -f docker-compose.mtls.yml up --build` (see `docs/deployment.md`).
 
 ## Tests & evaluation
 ```bash

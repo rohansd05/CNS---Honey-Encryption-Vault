@@ -17,8 +17,12 @@ flowchart LR
   attack demo, evaluation summary. All crypto via `honeycore.factory.load_honeycore(HONEYCORE_IMPL)`.
 - **honeycore** (`backend/honeycore/`) — pure library: DTEs (PCFG), Argon2id, AES-256-CTR (no MAC),
   vault blob v1, sigil, baseline vault, ECC sharing, PKI, signed transport. No web/DB imports.
-- **honeychecker** (`honeychecker/`) — separate service and DB; knows only `user_id → real index`.
-- **frontend** (`frontend/`) — React + TS SPA; MSW mocks until Phase 3.
+- **honeychecker** (`honeychecker/`) — separate service with its own separate database
+  (`HC_DATABASE_URL`); knows only `user_id → real index` and raises alarms. API→honeychecker calls
+  are authenticated: signed requests on Render, mTLS in the local compose overlay
+  (`docker-compose.mtls.yml`); see ADR-005.
+- **frontend** (`frontend/`) — React + TS SPA on the real API; MSW mocks (`VITE_USE_MOCKS=true`)
+  are optional, for offline UI work only.
 
 ## 2. Honey-vault data flow
 ```mermaid
@@ -53,7 +57,7 @@ The vault blob shape is identical in both modes; stub blobs say "stub" in `schem
 both modes use the same sigil tables (`honeycore/sigil.py`).
 
 ## 4. Repository tree
-Legend: ✅ exists · 🔜 planned (owner, phase). Ownership follows PROJECT-ROADMAP.md §2.
+Legend: ✅ exists (owner). Ownership follows PROJECT-ROADMAP.md §2.
 
 ```text
 CNS---Honey-Encryption-Vault/
@@ -63,32 +67,33 @@ CNS---Honey-Encryption-Vault/
 ├── CLAUDE.md                            ✅ Claude Code entry point (imports AGENTS.md)
 ├── .env.example                         ✅ single env file for all services
 ├── .gitignore                           ✅
-├── docker-compose.yml                   🔜 T4 Vedant, P1
-├── render.yaml                          🔜 T4 Vedant, P2
+├── docker-compose.yml                   ✅ T4 Vedant
+├── docker-compose.mtls.yml              ✅ mTLS overlay (ADR-005)
+├── render.yaml                          ✅ T4 Vedant (Render: API + honeychecker)
 ├── .claude/
 │   └── settings.json                    ✅ agent permissions (denies git/gh write commands)
 ├── .github/
 │   ├── CODEOWNERS                       ✅ review owners per path (PROJECT-ROADMAP.md §2)
 │   ├── PULL_REQUEST_TEMPLATE.md         ✅
 │   ├── ISSUE_TEMPLATE/task.md           ✅
-│   └── workflows/ci.yml                 🔜 T4 Vedant, P1
+│   └── workflows/ci.yml                 ✅ T4 Vedant
 ├── docs/
 │   ├── AGENTS.md                        ✅ rules for AI coding agents
 │   ├── api-contract.md                  ✅ FROZEN REST contract
 │   ├── architecture.md                  ✅ this file
 │   ├── threat-model.md                  ✅
 │   ├── demo-script.md                   ✅
-│   ├── eval-report.md                   ✅ placeholder (T1, P3)
+│   ├── eval-report.md                   ✅ evaluation results (from eval/results/latest.json)
 │   ├── TEAM.md                          ✅ everyone adds a row in P0
-│   ├── deployment.md                    🔜 T4 Vedant, P1
-│   └── decisions/ADR-001…ADR-006.md     ✅
+│   ├── deployment.md                    ✅ T4 Vedant
+│   └── decisions/ADR-001…ADR-007.md     ✅
 ├── backend/
 │   ├── pyproject.toml                   ✅ ruff + pytest config
 │   ├── requirements.txt                 ✅ runtime
 │   ├── requirements-dev.txt             ✅ tests, lint, eval
 │   ├── alembic.ini                      ✅
-│   ├── alembic/{env.py,script.py.mako,versions/}   ✅ (no migrations yet; T2 Tanuj)
-│   ├── Dockerfile                       🔜 T4 Vedant, P1
+│   ├── alembic/{env.py,script.py.mako,versions/}   ✅ (T2 Tanuj)
+│   ├── Dockerfile                       ✅ T4 Vedant
 │   ├── app/                             T2
 │   │   ├── main.py · config.py · db.py  ✅ (Tanuj)
 │   │   ├── security.py · rate_limit.py · errors.py · deps.py   ✅ app core (Tanuj)
@@ -96,7 +101,7 @@ CNS---Honey-Encryption-Vault/
 │   │   │   ├── health.py                ✅
 │   │   │   ├── vault.py · attack.py · eval.py             ✅ (Tanuj)
 │   │   │   ├── auth.py · admin.py · users.py · shares.py  ✅ (Rohan)
-│   │   │   └── utils.py                 🔜 T5 Aryan, P2 (optional)
+│   │   │   └── utils.py                 ✅ T5 Aryan
 │   │   ├── models/core.py               ✅ users/vaults/shares/alerts (Tanuj)
 │   │   ├── schemas/                     ✅ auth.py (Rohan) · vault.py (Tanuj) · shares/users (Rohan)
 │   │   ├── services/                    ✅ vault_service.py (Tanuj); registration, alerts,
@@ -114,18 +119,18 @@ CNS---Honey-Encryption-Vault/
 │   │   │   └── username_dte.py · entry_dte.py             ✅ (Nidhi, P2)
 │   │   └── models/pcfg_{password,username}_v1.json.gz     ✅ (Nidhi, train_pcfg.py)
 │   ├── attack/                          ✅ package (T1 Dhruv)
-│   │   ├── simulator.py · fallback_wordlist.py            🔜 Dhruv, P2
-│   │   └── wordlists/demo_wordlist.txt  🔜 T5 Tanmay, P2
+│   │   ├── simulator.py · fallback_wordlist.py            ✅ Dhruv
+│   │   └── wordlists/demo_wordlist.txt  ✅ T5 Tanmay
 │   ├── eval/                            ✅ package (T1)
-│   │   ├── chi_squared.py               🔜 Nidhi, P2
-│   │   ├── classifier.py · run_all.py   🔜 Dhruv, P2
-│   │   └── results/latest.json          🔜 generated
+│   │   ├── chi_squared.py               ✅ Nidhi
+│   │   ├── classifier.py · run_all.py   ✅ Dhruv
+│   │   └── results/latest.json          ✅ generated by run_all, committed
 │   ├── scripts/                         ✅ package
 │   │   ├── download_corpus.py · train_pcfg.py             ✅ T1 Nidhi
 │   │   ├── bench_kdf.py                 ✅ T1 Dhruv
-│   │   ├── seed_demo.py                 🔜 T2 Tanuj, P2
+│   │   ├── seed_demo.py                 ✅ T2 Tanuj
 │   │   ├── build_attack_wordlist.py     ✅ T5 Tanmay
-│   │   └── smoke_test.py                🔜 T4 Vedant, P2
+│   │   └── smoke_test.py                ✅ T4 Vedant
 │   └── tests/
 │       ├── conftest.py · test_health.py ✅
 │       ├── core/                        ✅ (T1: DTEs, vault, KDF, cipher, sigil, factory)
@@ -134,12 +139,12 @@ CNS---Honey-Encryption-Vault/
 │       └── infra/conftest.py            ✅ (T4)
 ├── honeychecker/                        T2 Rohan (security.py: T4 Parth)
 │   ├── pyproject.toml · requirements.txt  ✅
-│   ├── app/{main,config,db,models,security}.py   ✅ /hc/health only
-│   ├── tests/test_health.py             ✅
-│   └── Dockerfile                       🔜 T4 Vedant, P1
-├── frontend/                            T3 — README.md ✅; Vite app 🔜 Krrish P1
-│   └── vercel.json                      🔜 T4 Vedant, P2
-├── pki/                                 T4 Parth — README.md ✅; make_root_ca.py etc. 🔜 P1
+│   ├── app/{main,config,db,models,security}.py   ✅ /hc/health, /hc/register, /hc/check, /hc/alarms
+│   ├── tests/                           ✅
+│   └── Dockerfile                       ✅ T4 Vedant
+├── frontend/                            T3 — README.md ✅; Vite app ✅ Krrish
+│   └── vercel.json                      ✅ T4 Vedant
+├── pki/                                 T4 Parth — README.md ✅; make_root_ca.py etc. ✅
 │   └── out/                             gitignored (keys/certs)
 └── data/                                README.md ✅; corpora gitignored
 ```
